@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(venv/Scripts/pip install:*)",
+      "Bash(venv/Scripts/python.exe -c ':*)",
+      "Bash(venv/Scripts/python.exe -c \"import flask; print\\('Flask OK:', flask.__version__\\)\")",
+      "Bash(venv/Scripts/python.exe app.py)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:5000/)",
+      "Bash(venv/Scripts/python.exe build_ecg_model.py)",
+      "Bash(venv\\\\Scripts\\\\python.exe -c \"import app; print\\('OK — no import errors'\\)\")",
+      "Bash(Get-ChildItem -Path \"e:\\\\coderepo\\\\HEARTCARE AI\" -Recurse -Force)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(Sort-Object FullName)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app.py'\\).read\\(\\)\\); print\\('app.py syntax OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app.py',encoding='utf-8'\\).read\\(\\)\\); print\\('app.py syntax OK'\\)\")"
+    ]
+  }
+}

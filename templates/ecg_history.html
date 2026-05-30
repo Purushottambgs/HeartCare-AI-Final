@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% set title = 'HeartCare AI • ECG History' %}
+
+{% block content %}
+<style>
+  .ecg-table thead th {
+    color: rgba(234,240,255,.7);
+    font-weight: 600;
+    font-size: .85rem;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    white-space: nowrap;
+  }
+  .ecg-table tbody tr {
+    border-bottom: 1px solid rgba(255,255,255,.05);
+    transition: background .15s;
+  }
+  .ecg-table tbody tr:hover { background: rgba(124,58,237,.07) !important; }
+  .ecg-table tbody td { color: #eaf0ff; background: transparent !important; font-size: .9rem; vertical-align: middle; }
+  .thumb { width: 90px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid rgba(255,255,255,.12); }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+  <div>
+    <div class="kicker">ecg records</div>
+    <h1 class="mb-0">ECG Analysis History</h1>
+    <p class="sub mb-0">All uploaded ECG scans and their AI analysis results.</p>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/ecg_analysis" class="btn btn-glow btn-sm">+ New ECG Scan</a>
+    <a href="/history" class="btn btn-ghost btn-sm">Heart Risk History</a>
+    <a href="/dashboard" class="btn btn-ghost btn-sm">Dashboard</a>
+  </div>
+</div>
+
+{% if records %}
+<div class="hero-card p-0 overflow-hidden">
+  <div class="table-responsive">
+    <table class="table table-dark table-borderless align-middle ecg-table mb-0">
+      <thead>
+        <tr>
+          <th class="ps-4">#</th>
+          <th>Patient</th>
+          <th>Date</th>
+          <th>ECG Preview</th>
+          <th>Result</th>
+          <th>Confidence</th>
+          <th>Peaks</th>
+          <th>RR Mean</th>
+          <th>RR Std</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in records %}
+        <tr>
+          <td class="ps-4 mini">{{ row["id"] }}</td>
+          <td><span class="fw-bold">{{ row["patient_name"] or "Anonymous" }}</span></td>
+          <td class="mini">{{ row["created_at"] }}</td>
+          <td>
+            {% if row["filename"] %}
+            <img src="{{ url_for('static', filename='uploads/' ~ row['filename']) }}"
+                 alt="ECG" class="thumb"
+                 onerror="this.style.display='none'">
+            {% else %}
+            <span class="mini">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if row["result"] == "1" %}
+              <span class="badge rounded-pill bg-danger">⚠ Abnormal</span>
+            {% else %}
+              <span class="badge rounded-pill bg-success">✓ Normal</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="fw-bold">{{ row["confidence"] }}%</span>
+            <div class="progress mt-1" style="height:4px;border-radius:999px;background:rgba(255,255,255,.08);width:60px">
+              <div class="{{ 'bg-success' if row['result'] == '0' else 'bg-danger' }} progress-bar"
+                   data-w="{{ row['confidence'] }}"></div>
+            </div>
+          </td>
+          <td>{{ row["num_peaks"] }}</td>
+          <td>{{ row["rr_mean"] }}</td>
+          <td>{{ row["rr_std"] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<div class="mini mt-3 text-end">{{ records|length }} ECG scan(s) on record</div>
+
+{% else %}
+<div class="hero-card p-5 text-center">
+  <div style="font-size:3rem">📷</div>
+  <h3 class="mt-3">No ECG records yet</h3>
+  <p class="sub">Upload your first ECG image to get started.</p>
+  <a href="/ecg_analysis" class="btn btn-glow mt-2">Upload ECG →</a>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('[data-w]').forEach(el => {
+  el.style.width = el.getAttribute('data-w') + '%';
+});
+</script>
+{% endblock %}

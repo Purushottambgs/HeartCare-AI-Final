@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% set title = 'HeartCare AI • My Profile' %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4 mb-4">
+  <!-- Profile Card -->
+  <div class="col-lg-4">
+    <div class="hero-card p-4 h-100 slide-up">
+      <div class="d-flex align-items-center gap-3 mb-4">
+        <div class="brand-dot" style="width:56px;height:56px;font-size:1.6rem;display:flex;align-items:center;justify-content:center;">&#128100;</div>
+        <div>
+          <div class="h4 mb-0 fw-bold">{{ user.username }}</div>
+          <div class="mini">{{ user.email or 'No email set' }}</div>
+          <div class="mini">Member since {{ user.created_at[:10] }}</div>
+        </div>
+      </div>
+      <div class="divider my-3"></div>
+
+      <div class="row g-2 text-center mb-3">
+        <div class="col-4">
+          <div class="form-card p-3">
+            <div class="fw-bold" style="font-size:1.5rem;color:rgba(167,139,250,.9)">{{ total }}</div>
+            <div class="mini">Checks</div>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="form-card p-3">
+            <div class="fw-bold" style="font-size:1.5rem;color:{% if avg_risk < 30 %}#22c55e{% elif avg_risk < 60 %}#f59e0b{% else %}#ef4444{% endif %}">{{ avg_risk }}%</div>
+            <div class="mini">Avg Risk</div>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="form-card p-3">
+            <div class="fw-bold" style="font-size:1.5rem">{{ last.risk_level.split()[0] if last else '—' }}</div>
+            <div class="mini">Last Check</div>
+          </div>
+        </div>
+      </div>
+
+      {% if last %}
+      <div class="divider my-3"></div>
+      <div class="section-title mb-2">Latest Reading</div>
+      <div class="kv"><div class="k">BP</div><div class="v">{{ last.ap_hi }}/{{ last.ap_lo }} mmHg</div></div>
+      <div class="kv"><div class="k">BMI</div><div class="v">{{ last.bmi }}</div></div>
+      <div class="kv"><div class="k">Risk Score</div><div class="v fw-bold">{{ last.probability }}%</div></div>
+      <div class="kv"><div class="k">Risk Level</div><div class="v">{{ last.risk_level }}</div></div>
+      {% endif %}
+
+      <div class="d-flex flex-column gap-2 mt-4">
+        <a href="/" class="btn btn-glow btn-sm">+ New Health Check</a>
+        <a href="/simulate{% if last %}?age={{ last.age }}&gender={{ last.gender }}&height={{ last.height }}&weight={{ last.weight }}&ap_hi={{ last.ap_hi }}&ap_lo={{ last.ap_lo }}&cholesterol={{ last.cholesterol }}&gluc={{ last.gluc }}&smoke={{ last.smoke }}&alco={{ last.alco }}&active={{ last.active }}{% endif %}" class="btn btn-ghost btn-sm">What-if Simulation</a>
+        <a href="/logout" class="btn btn-ghost btn-sm" style="color:rgba(239,68,68,.8)">Sign Out</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trend Charts -->
+  <div class="col-lg-8">
+    <div class="form-card p-4 mb-4 fade-in">
+      <div class="section-title mb-3">Risk Score Trend</div>
+      {% if total == 0 %}
+      <div class="text-center py-4 sub">No predictions yet. <a href="/" style="color:rgba(167,139,250,.9)">Take your first health check.</a></div>
+      {% else %}
+      <canvas id="riskChart" height="120"></canvas>
+      {% endif %}
+    </div>
+
+    <div class="row g-4">
+      <div class="col-md-6">
+        <div class="form-card p-4 fade-in">
+          <div class="section-title mb-3">BMI Trend</div>
+          <canvas id="bmiChart" height="150"></canvas>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="form-card p-4 fade-in">
+          <div class="section-title mb-3">Blood Pressure Trend</div>
+          <canvas id="bpChart" height="150"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Health Reminders -->
+<div class="form-card p-4 mb-4">
+  <div class="section-title mb-3">Daily Health Reminders</div>
+  <div class="row g-3">
+    {% set reminders = [
+      ('💧', 'Hydration', 'Drink 8 glasses of water today.', 'rgba(56,189,248,.15)', 'rgba(56,189,248,.35)'),
+      ('🩺', 'BP Check', 'Monitor your blood pressure regularly.', 'rgba(167,139,250,.15)', 'rgba(167,139,250,.35)'),
+      ('🏃', 'Exercise', '30 minutes of moderate activity today.', 'rgba(34,197,94,.15)', 'rgba(34,197,94,.35)'),
+      ('🥗', 'Nutrition', 'Include fruits & vegetables in every meal.', 'rgba(245,158,11,.15)', 'rgba(245,158,11,.35)'),
+      ('😴', 'Sleep', 'Aim for 7–9 hours of quality sleep.', 'rgba(239,68,68,.15)', 'rgba(239,68,68,.35)'),
+      ('🧘', 'Stress', 'Take 5-minute mindfulness breaks.', 'rgba(16,185,129,.15)', 'rgba(16,185,129,.35)'),
+    ] %}
+    {% for icon, title, msg, bg, border in reminders %}
+    <div class="col-md-4 col-sm-6">
+      <div class="p-3 rounded-4 d-flex gap-3 align-items-start" style="background:{{ bg }};border:1px solid {{ border }}">
+        <span style="font-size:1.5rem">{{ icon }}</span>
+        <div>
+          <div class="fw-bold" style="font-size:.9rem">{{ title }}</div>
+          <div class="mini">{{ msg }}</div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Recent Predictions -->
+{% if records %}
+<div class="form-card p-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="section-title">Recent Predictions</div>
+    <a href="/history" class="btn btn-ghost btn-sm">View All</a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-dark table-hover align-middle mb-0" style="font-size:.88rem">
+      <thead><tr>
+        <th>Date</th><th>Patient</th><th>Risk %</th><th>Level</th><th>BMI</th><th>BP</th>
+      </tr></thead>
+      <tbody>
+        {% for r in records %}
+        <tr>
+          <td>{{ r.created_at[:10] }}</td>
+          <td>{{ r.patient_name }}</td>
+          <td><span class="fw-bold {% if r.probability < 30 %}text-success{% elif r.probability < 60 %}text-warning{% else %}text-danger{% endif %}">{{ r.probability }}%</span></td>
+          <td>{{ r.risk_level }}</td>
+          <td>{{ r.bmi }}</td>
+          <td>{{ r.ap_hi }}/{{ r.ap_lo }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const labels = {{ trend_labels|safe }};
+const riskData = {{ trend_risk|safe }};
+const bmiData  = {{ trend_bmi|safe }};
+const apHi     = {{ trend_ap_hi|safe }};
+const apLo     = {{ trend_ap_lo|safe }};
+
+const chartDefaults = {
+  responsive: true,
+  plugins: { legend: { labels: { color: 'rgba(220,225,255,.8)', font:{size:11} } } },
+  scales: {
+    x: { ticks: { color:'rgba(180,185,220,.7)', maxTicksLimit:8 }, grid:{ color:'rgba(255,255,255,.06)' } },
+    y: { ticks: { color:'rgba(180,185,220,.7)' }, grid:{ color:'rgba(255,255,255,.06)' } }
+  }
+};
+
+if (document.getElementById('riskChart') && riskData.length > 0) {
+  new Chart(document.getElementById('riskChart'), {
+    type:'line',
+    data:{
+      labels,
+      datasets:[{ label:'Risk %', data:riskData,
+        borderColor:'rgba(167,139,250,.9)', backgroundColor:'rgba(167,139,250,.12)',
+        fill:true, tension:.4, pointRadius:4 }]
+    },
+    options:{...chartDefaults, scales:{...chartDefaults.scales, y:{...chartDefaults.scales.y, min:0, max:100}}}
+  });
+}
+
+if (document.getElementById('bmiChart') && bmiData.length > 0) {
+  new Chart(document.getElementById('bmiChart'), {
+    type:'line',
+    data:{labels, datasets:[{ label:'BMI', data:bmiData,
+      borderColor:'rgba(56,189,248,.9)', backgroundColor:'rgba(56,189,248,.10)',
+      fill:true, tension:.4, pointRadius:3 }]},
+    options:chartDefaults
+  });
+}
+
+if (document.getElementById('bpChart') && apHi.length > 0) {
+  new Chart(document.getElementById('bpChart'), {
+    type:'line',
+    data:{labels, datasets:[
+      { label:'Systolic', data:apHi, borderColor:'rgba(239,68,68,.8)', backgroundColor:'transparent', tension:.4, pointRadius:3 },
+      { label:'Diastolic', data:apLo, borderColor:'rgba(245,158,11,.8)', backgroundColor:'transparent', tension:.4, pointRadius:3 }
+    ]},
+    options:chartDefaults
+  });
+}
+</script>
+{% endblock %}

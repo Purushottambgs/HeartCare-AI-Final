@@ -1,0 +1,293 @@
+{% extends 'base.html' %}
+{% set title = 'HeartCare AI • ECG Analysis' %}
+
+{% block content %}
+<style>
+  .ecg-upload-zone {
+    border: 2px dashed rgba(124,58,237,.45);
+    border-radius: 18px;
+    padding: 40px 20px;
+    text-align: center;
+    transition: border-color .2s, background .2s;
+    cursor: pointer;
+    background: rgba(124,58,237,.04);
+  }
+  .ecg-upload-zone:hover, .ecg-upload-zone.drag-over {
+    border-color: rgba(124,58,237,.85);
+    background: rgba(124,58,237,.09);
+  }
+  .ecg-upload-zone input[type="file"] {
+    display: none;
+  }
+  .ecg-icon { font-size: 3rem; line-height:1; }
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+  }
+  .feat-card {
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+  }
+  .feat-card .fval { font-size: 1.15rem; font-weight: 800; }
+  .result-banner {
+    border-radius: 18px;
+    padding: 28px 30px;
+    margin-bottom: 24px;
+  }
+  .result-banner.success {
+    background: linear-gradient(135deg, rgba(34,197,94,.15), rgba(34,197,94,.05));
+    border: 1px solid rgba(34,197,94,.35);
+  }
+  .result-banner.danger {
+    background: linear-gradient(135deg, rgba(239,68,68,.15), rgba(239,68,68,.05));
+    border: 1px solid rgba(239,68,68,.35);
+  }
+  .result-icon-big { font-size: 3.5rem; }
+  .ecg-img-preview {
+    width: 100%;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,.12);
+    box-shadow: 0 14px 40px rgba(0,0,0,.4);
+    margin-top: 16px;
+  }
+  .conf-bar-wrap { background: rgba(255,255,255,.08); border-radius: 999px; height: 12px; }
+  .conf-bar { height: 12px; border-radius: 999px; transition: width .6s ease; }
+</style>
+
+<div class="row g-4">
+
+  <!-- LEFT: Upload Form -->
+  <div class="col-lg-5">
+    <div class="hero-card p-4 p-md-5 h-100 slide-up">
+      <div class="kicker mb-2">AI-powered screening</div>
+      <div class="h1 mb-3">ECG Image Analysis</div>
+      <p class="sub mb-4">
+        Upload an ECG strip image and our AI model will analyse the waveform
+        pattern to screen for potential cardiac abnormalities.
+      </p>
+
+      <div class="d-flex flex-wrap gap-2 mb-4">
+        <span class="pill">🫀 Waveform AI</span>
+        <span class="pill">📊 20 Signal Features</span>
+        <span class="pill">⚡ Instant Result</span>
+      </div>
+
+      {% if error %}
+      <div class="alert alert-danger rounded-4 mb-3">{{ error }}</div>
+      {% endif %}
+
+      <form action="/ecg_analysis" method="post" enctype="multipart/form-data" id="ecgForm">
+
+        <div class="mb-3">
+          <label class="form-label">Patient Name (optional)</label>
+          <input type="text" name="patient_name" class="form-control"
+                 placeholder="e.g. Rahul Sharma" maxlength="80">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Upload ECG Image</label>
+          <div class="ecg-upload-zone" id="dropZone" onclick="document.getElementById('ecgFile').click()">
+            <div class="ecg-icon mb-2">📷</div>
+            <div class="fw-bold mb-1">Click to upload or drag & drop</div>
+            <div class="mini">PNG, JPG, BMP, TIFF — max 16 MB</div>
+            <div class="mini mt-2" id="fileLabel">No file selected</div>
+            <input type="file" name="ecg_image" id="ecgFile" accept=".png,.jpg,.jpeg,.bmp,.tiff,.webp"
+                   onchange="onFileSelect(this)" required>
+          </div>
+        </div>
+
+        <!-- Local preview -->
+        <div id="localPreview" class="mb-3" style="display:none;">
+          <div class="mini mb-1">Preview</div>
+          <img id="previewImg" src="" alt="ECG preview" class="ecg-img-preview">
+        </div>
+
+        <button type="submit" class="btn btn-glow btn-lg w-100" id="analyseBtn">
+          Analyse ECG →
+        </button>
+      </form>
+
+      <div class="mt-4 mini">
+        <strong>Tip:</strong> Use a clear, high-contrast ECG strip image. Blurry
+        or low-resolution scans may reduce accuracy.
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Result / Info -->
+  <div class="col-lg-7">
+    {% if result %}
+    <div class="fade-in">
+
+      <!-- Result Banner -->
+      <div class="result-banner {{ result.cls }}">
+        <div class="d-flex align-items-center gap-4 flex-wrap">
+          <div class="result-icon-big">{{ result.icon }}</div>
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+              <div class="h3 mb-0 fw-bold">{{ result.label }}</div>
+              <span style="font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:999px;
+                           background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
+                           color:rgba(255,255,255,.85);letter-spacing:.05em;">
+                SCREENING TOOL ONLY
+              </span>
+            </div>
+            <div class="sub mb-2">{{ result.msg }}</div>
+            <div class="mini">Patient: <strong>{{ result.patient_name }}</strong> &nbsp;|&nbsp; {{ result.generated_at }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Confidence -->
+      <div class="form-card p-4 mb-3">
+        <div class="d-flex justify-content-between mb-2">
+          <div class="mini fw-bold">Model Confidence</div>
+          <div class="fw-bold">{{ result.confidence }}%</div>
+        </div>
+        <div class="conf-bar-wrap">
+          <div class="conf-bar {% if result.cls == 'success' %}bg-success{% else %}bg-danger{% endif %}"
+               style="width: {{ result.confidence }}%;"></div>
+        </div>
+        <div class="mini mt-2">{{ result.details }}</div>
+      </div>
+
+      <!-- Uploaded ECG Image -->
+      <div class="form-card p-4 mb-3">
+        <div class="mini fw-bold mb-2">Uploaded ECG Image</div>
+        <img src="{{ url_for('static', filename=result.image_path) }}"
+             alt="Uploaded ECG" class="ecg-img-preview">
+      </div>
+
+      <!-- Extracted Signal Features -->
+      <div class="form-card p-4 mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="section-title">Extracted Signal Features</div>
+          <span class="pill">20 metrics</span>
+        </div>
+        <div class="feature-grid">
+          {% for key, val in result.features.items() %}
+          <div class="feat-card">
+            <div class="mini mb-1">{{ key }}</div>
+            <div class="fval">{{ val }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="mini mt-3">
+          These statistical features were extracted from the ECG waveform and fed
+          into a Gradient Boosting classifier trained on synthetic ECG signals with realistic photo artefacts.
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="d-flex flex-wrap gap-2">
+        <a href="/ecg_analysis" class="btn btn-glow btn-lg">Analyse Another ECG →</a>
+        <a href="/ecg_history" class="btn btn-ghost btn-lg">ECG History</a>
+        <a href="/" class="btn btn-ghost btn-lg">← Heart Risk Check</a>
+      </div>
+
+    </div>
+    {% else %}
+    <!-- Info Panel (no result yet) -->
+    <div class="form-card p-4 p-md-5 h-100 fade-in">
+      <h5 class="section-title mb-3">How it works</h5>
+      <div class="divider my-3"></div>
+
+      <div class="d-flex gap-3 align-items-start mb-4">
+        <span style="font-size:1.8rem">1️⃣</span>
+        <div>
+          <div class="fw-bold mb-1">Upload ECG Strip</div>
+          <div class="sub">Take a photo or scan of a standard ECG printout. JPG, PNG, BMP formats supported.</div>
+        </div>
+      </div>
+      <div class="d-flex gap-3 align-items-start mb-4">
+        <span style="font-size:1.8rem">2️⃣</span>
+        <div>
+          <div class="fw-bold mb-1">Signal Extraction</div>
+          <div class="sub">Our system isolates the primary ECG lead strip, removes grid noise, and extracts 20 features — including RR variability, spectral entropy, LF/HF ratio, and dominant frequency.</div>
+        </div>
+      </div>
+      <div class="d-flex gap-3 align-items-start mb-4">
+        <span style="font-size:1.8rem">3️⃣</span>
+        <div>
+          <div class="fw-bold mb-1">AI Classification</div>
+          <div class="sub">A Gradient Boosting model trained on synthetic ECG signals with realistic photo artefacts classifies the ECG as Normal or Abnormal with a confidence score.</div>
+        </div>
+      </div>
+      <div class="d-flex gap-3 align-items-start mb-4">
+        <span style="font-size:1.8rem">4️⃣</span>
+        <div>
+          <div class="fw-bold mb-1">Instant Report</div>
+          <div class="sub">See detailed feature breakdown, confidence level, and clinical guidance — stored in ECG history.</div>
+        </div>
+      </div>
+
+      <div class="divider my-4"></div>
+
+      <div class="alert rounded-4 mb-0"
+           style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);">
+        <strong>⚠ Important Disclaimer</strong>
+        <div class="mini mt-1">
+          This ECG screening tool is for educational and preliminary screening purposes only.
+          It does not replace a clinical ECG interpretation by a qualified cardiologist.
+          Always consult a doctor for medical diagnosis.
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function onFileSelect(input) {
+  const label = document.getElementById('fileLabel');
+  const preview = document.getElementById('localPreview');
+  const previewImg = document.getElementById('previewImg');
+
+  if (input.files && input.files[0]) {
+    label.textContent = input.files[0].name;
+    const reader = new FileReader();
+    reader.onload = e => {
+      previewImg.src = e.target.result;
+      preview.style.display = 'block';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+// Drag and drop
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('ecgFile');
+if (dropZone && fileInput) {
+  ['dragenter','dragover'].forEach(e => dropZone.addEventListener(e, ev => {
+    ev.preventDefault(); dropZone.classList.add('drag-over');
+  }));
+  ['dragleave','drop'].forEach(e => dropZone.addEventListener(e, ev => {
+    ev.preventDefault(); dropZone.classList.remove('drag-over');
+  }));
+  dropZone.addEventListener('drop', ev => {
+    ev.preventDefault();
+    if (ev.dataTransfer.files.length) {
+      fileInput.files = ev.dataTransfer.files;
+      onFileSelect(fileInput);
+    }
+  });
+}
+
+// Loading state on submit
+const form = document.getElementById('ecgForm');
+const btn  = document.getElementById('analyseBtn');
+if (form && btn) {
+  form.addEventListener('submit', () => {
+    btn.textContent = 'Analysing ECG…';
+    btn.disabled = true;
+  });
+}
+</script>
+{% endblock %}

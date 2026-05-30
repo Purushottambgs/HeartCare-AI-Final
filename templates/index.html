@@ -1,0 +1,296 @@
+{% extends 'base.html' %}
+{% set title = 'HeartCare AI • Risk Prediction' %}
+
+{% block content %}
+<div class="row g-4 align-items-stretch">
+  <div class="col-lg-5">
+    <div class="hero-card p-4 p-md-5 h-100 slide-up">
+      <div class="kicker mb-2">AI-powered cardiovascular screening</div>
+      <div class="h1 mb-3" style="background:linear-gradient(135deg,var(--text) 50%,rgba(167,139,250,.85));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+        Check heart-disease<br>risk in seconds.
+      </div>
+      <p class="sub mb-4">
+        AI-powered cardiovascular risk screening with prediction, ECG analysis, real-time analytics, and downloadable PDF reports.
+      </p>
+
+      <div class="d-flex flex-wrap gap-2 mb-4">
+        <span class="pill">⚡ Instant Results</span>
+        <span class="pill">🧾 PDF Report</span>
+        <span class="pill">🧠 XGBoost AI</span>
+        <span class="pill">🫀 ECG Analysis</span>
+        <span class="pill">🏥 Find Doctors</span>
+      </div>
+
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        <a href="/ecg_analysis" class="btn btn-ghost btn-sm" style="border-color:rgba(124,58,237,.45);color:rgba(167,139,250,.95);">
+          🫀 ECG Image Analysis
+        </a>
+        <a href="/find_doctor" class="btn btn-ghost btn-sm" style="border-color:rgba(239,68,68,.45);color:rgba(252,165,165,.95);">
+          🏥 Find a Cardiologist
+        </a>
+      </div>
+
+      <div class="d-none d-lg-block">
+        <img class="hero-img" src="{{ url_for('static', filename='img/heartimg.png') }}" alt="Heart illustration">
+      </div>
+
+      <div class="mt-4 mini">
+        Tip: Use realistic values (e.g., Systolic 90–180). Wrong ranges can reduce accuracy.
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="form-card p-4 p-md-5 h-100 fade-in">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h4 class="mb-0 section-title">Patient Inputs</h4>
+        <span class="pill">🫀 HeartCare AI</span>
+      </div>
+      <div class="divider my-3"></div>
+
+      <form action="/predict" method="post" class="needs-validation" novalidate id="hcForm">
+        <div class="row g-3">
+
+          <div class="col-12">
+            <label class="form-label">Patient Name <span class="mini">(optional)</span></label>
+            <input type="text" name="patient_name" class="form-control"
+                   placeholder="e.g. Rahul Sharma" maxlength="80">
+          </div>
+
+          <div class="col-12"><div class="divider my-1"></div></div>
+
+          <div class="col-md-4">
+            <div class="range-meta">
+              <label class="form-label mb-1">Age (years)</label>
+              <div class="range-val"><span data-out="age">28</span></div>
+            </div>
+            <input type="range" class="form-range" min="10" max="100" value="28" data-sync="age">
+            <input type="number" step="1" name="age" class="form-control" value="28" required data-in="age">
+            <div class="invalid-feedback">Enter age.</div>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Gender</label>
+            <select name="gender" class="form-select" required>
+              <option value="" selected disabled>Select</option>
+              <option value="1">Female (1)</option>
+              <option value="2">Male (2)</option>
+            </select>
+            <div class="invalid-feedback">Select gender.</div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="range-meta">
+              <label class="form-label mb-1">Height (cm)</label>
+              <div class="range-val"><span data-out="height">170</span></div>
+            </div>
+            <input type="range" class="form-range" min="120" max="220" value="170" data-sync="height">
+            <input type="number" step="1" name="height" class="form-control" value="170" required data-in="height">
+            <div class="invalid-feedback">Enter height.</div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="range-meta">
+              <label class="form-label mb-1">Weight (kg)</label>
+              <div class="range-val"><span data-out="weight">68</span></div>
+            </div>
+            <input type="range" class="form-range" min="30" max="160" value="68" data-sync="weight">
+            <input type="number" step="1" name="weight" class="form-control" value="68" required data-in="weight">
+            <div class="invalid-feedback">Enter weight.</div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="range-meta">
+              <label class="form-label mb-1">Systolic BP</label>
+              <div class="range-val"><span data-out="ap_hi">120</span></div>
+            </div>
+            <input type="range" class="form-range" min="80" max="220" value="120" data-sync="ap_hi">
+            <input type="number" step="1" name="ap_hi" class="form-control" value="120" required data-in="ap_hi">
+            <div class="invalid-feedback">Enter systolic BP.</div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="range-meta">
+              <label class="form-label mb-1">Diastolic BP</label>
+              <div class="range-val"><span data-out="ap_lo">80</span></div>
+            </div>
+            <input type="range" class="form-range" min="40" max="140" value="80" data-sync="ap_lo">
+            <input type="number" step="1" name="ap_lo" class="form-control" value="80" required data-in="ap_lo">
+            <div class="invalid-feedback">Enter diastolic BP.</div>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Cholesterol</label>
+            <select name="cholesterol" class="form-select" required>
+              <option value="" selected disabled>Select</option>
+              <option value="1">Normal (1)</option>
+              <option value="2">Above normal (2)</option>
+              <option value="3">Well above normal (3)</option>
+            </select>
+            <div class="form-text">Choose 1–3.</div>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Glucose</label>
+            <select name="gluc" class="form-select" required>
+              <option value="" selected disabled>Select</option>
+              <option value="1">Normal (1)</option>
+              <option value="2">Above normal (2)</option>
+              <option value="3">Well above normal (3)</option>
+            </select>
+            <div class="form-text">Choose 1–3.</div>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Smoking</label>
+            <select name="smoke" class="form-select" required>
+              <option value="" selected disabled>Select</option>
+              <option value="0">No (0)</option>
+              <option value="1">Yes (1)</option>
+            </select>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Alcohol</label>
+            <select name="alco" class="form-select" required>
+              <option value="" selected disabled>Select</option>
+              <option value="0">No (0)</option>
+              <option value="1">Yes (1)</option>
+            </select>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Physical Activity</label>
+            <select name="active" class="form-select" required>
+              <option value="" selected disabled>Select</option>
+              <option value="1">Active (1)</option>
+              <option value="0">Not active (0)</option>
+            </select>
+          </div>
+
+          <div class="col-12 mt-2"><div class="divider my-2"></div></div>
+
+          <div class="col-12">
+            <div class="preview">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="section-title">Live Summary</div>
+                <span class="pill">👤 Preview</span>
+              </div>
+              <div class="row g-2">
+                <div class="col-md-6">
+                  <div class="kv"><div class="k">Age</div><div class="v" data-prev="age">28</div></div>
+                  <div class="kv"><div class="k">Gender</div><div class="v" data-prev="gender">—</div></div>
+                  <div class="kv"><div class="k">Height</div><div class="v"><span data-prev="height">170</span> cm</div></div>
+                  <div class="kv"><div class="k">Weight</div><div class="v"><span data-prev="weight">68</span> kg</div></div>
+                </div>
+                <div class="col-md-6">
+                  <div class="kv"><div class="k">BP</div><div class="v"><span data-prev="ap_hi">120</span>/<span data-prev="ap_lo">80</span> mmHg</div></div>
+                  <div class="kv"><div class="k">Cholesterol</div><div class="v" data-prev="cholesterol">—</div></div>
+                  <div class="kv"><div class="k">Glucose</div><div class="v" data-prev="gluc">—</div></div>
+                  <div class="kv"><div class="k">Lifestyle</div><div class="v" data-prev="life">—</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 d-flex flex-column flex-md-row gap-2 align-items-stretch align-items-md-center justify-content-between">
+            <div class="mini">Predictions are stored securely in the local database for history and dashboard analytics.</div>
+            <button type="submit" class="btn btn-glow btn-lg" id="predictBtn">Generate AI Risk Analysis → →</button>
+          </div>
+
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+  'use strict';
+  const form = document.getElementById('hcForm');
+  const overlay = document.getElementById('hcOverlay');
+
+  const qs = (s, el=document) => el.querySelector(s);
+  const qsa = (s, el=document) => Array.from(el.querySelectorAll(s));
+
+  const setText = (key, val) => {
+    qsa(`[data-out="${key}"]`).forEach(n => n.textContent = val);
+    qsa(`[data-prev="${key}"]`).forEach(n => n.textContent = val);
+  };
+
+  qsa('[data-sync]').forEach(range => {
+    const key = range.getAttribute('data-sync');
+    const num = qs(`[data-in="${key}"]`);
+    const push = (v) => {
+      const vv = (v === '' || v === null || Number.isNaN(Number(v))) ? 0 : v;
+      range.value = vv;
+      if (num) num.value = vv;
+      setText(key, vv);
+    };
+    push(range.value);
+    range.addEventListener('input', () => push(range.value));
+    if (num) num.addEventListener('input', () => push(num.value));
+  });
+
+  const gender = qs('select[name="gender"]');
+  const chol = qs('select[name="cholesterol"]');
+  const gluc = qs('select[name="gluc"]');
+  const smoke = qs('select[name="smoke"]');
+  const alco = qs('select[name="alco"]');
+  const active = qs('select[name="active"]');
+
+  const labelOf = (sel) => {
+    if (!sel || sel.selectedIndex < 0) return '—';
+    const opt = sel.options[sel.selectedIndex];
+    return opt && opt.value !== '' ? opt.textContent.replace(/\s*\(\d\)\s*$/,'') : '—';
+  };
+
+  const updateSelects = () => {
+    setText('gender', labelOf(gender));
+    setText('cholesterol', labelOf(chol));
+    setText('gluc', labelOf(gluc));
+
+    const s = labelOf(smoke);
+    const a = labelOf(alco);
+    const ac = labelOf(active);
+    const life = [
+      s === '—' ? null : `Smoke: ${s}`,
+      a === '—' ? null : `Alcohol: ${a}`,
+      ac === '—' ? null : `Activity: ${ac}`,
+    ].filter(Boolean).join(' • ') || '—';
+    setText('life', life);
+  };
+
+  [gender, chol, gluc, smoke, alco, active].forEach(sel => {
+    if (sel) sel.addEventListener('change', updateSelects);
+  });
+  updateSelects();
+
+  if (form) {
+    form.addEventListener('submit', (event) => {
+      if (!form.checkValidity()) {
+        event.preventDefault();
+        event.stopPropagation();
+      } else {
+        if (overlay) overlay.style.display = 'block';
+      }
+      form.classList.add('was-validated');
+    }, false);
+  }
+})();
+</script>
+
+<div class="overlay" id="hcOverlay" aria-hidden="true">
+  <div class="box text-center">
+    <div class="d-flex align-items-center justify-content-center gap-3">
+      <div class="spinner" aria-hidden="true"></div>
+      <div class="text-start">
+        <div class="fw-bold" style="font-size:1.05rem">Running prediction…</div>
+        <div class="mini">Calculating risk score & preparing your result.</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

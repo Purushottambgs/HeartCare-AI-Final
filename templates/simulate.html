@@ -1,0 +1,281 @@
+{% extends 'base.html' %}
+{% set title = 'HeartCare AI • What-if Simulation' %}
+
+{% block content %}
+<div class="row g-4">
+
+  <!-- LEFT: Controls -->
+  <div class="col-lg-5">
+    <div class="hero-card p-4 p-md-5 h-100 slide-up">
+      <div class="kicker mb-2">Decision Support</div>
+      <div class="h2 mb-2">What-if Simulation</div>
+      <p class="sub mb-4">
+        Change risk factors and instantly see how your predicted risk score changes.
+        This helps answer: <em>"What if I quit smoking? What if I lose 10 kg?"</em>
+      </p>
+
+      <!-- Hidden base inputs -->
+      <input type="hidden" id="age"    value="{{ pre.age or 45 }}">
+      <input type="hidden" id="gender" value="{{ pre.gender or 1 }}">
+      <input type="hidden" id="height" value="{{ pre.height or 165 }}">
+      <input type="hidden" id="gluc"   value="{{ pre.gluc or 1 }}">
+
+      <!-- Modifiable factors -->
+      <div class="mb-3">
+        <div class="d-flex justify-content-between mb-1">
+          <label class="form-label mb-0">Current Weight (kg)</label>
+          <span class="pill" id="wLabel">{{ pre.weight or 70 }} kg</span>
+        </div>
+        <input type="range" class="form-range" id="weight" min="40" max="160" step="1" value="{{ pre.weight or 70 }}" oninput="syncLabel(this,'wLabel','kg');run()">
+      </div>
+
+      <div class="mb-3">
+        <div class="d-flex justify-content-between mb-1">
+          <label class="form-label mb-0">Systolic BP (mmHg)</label>
+          <span class="pill" id="hiLabel">{{ pre.ap_hi or 130 }} mmHg</span>
+        </div>
+        <input type="range" class="form-range" id="ap_hi" min="80" max="220" step="1" value="{{ pre.ap_hi or 130 }}" oninput="syncLabel(this,'hiLabel','mmHg');run()">
+      </div>
+
+      <div class="mb-3">
+        <div class="d-flex justify-content-between mb-1">
+          <label class="form-label mb-0">Diastolic BP (mmHg)</label>
+          <span class="pill" id="loLabel">{{ pre.ap_lo or 85 }} mmHg</span>
+        </div>
+        <input type="range" class="form-range" id="ap_lo" min="40" max="140" step="1" value="{{ pre.ap_lo or 85 }}" oninput="syncLabel(this,'loLabel','mmHg');run()">
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Cholesterol Level</label>
+        <select id="cholesterol" class="form-select" onchange="run()">
+          <option value="1" {% if pre.cholesterol=='1' %}selected{% endif %}>Normal (1)</option>
+          <option value="2" {% if pre.cholesterol=='2' %}selected{% endif %}>Above Normal (2)</option>
+          <option value="3" {% if pre.cholesterol=='3' %}selected{% endif %}>Well Above Normal (3)</option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Smoking</label>
+        <select id="smoke" class="form-select" onchange="run()">
+          <option value="1" {% if pre.smoke=='1' %}selected{% endif %}>Yes</option>
+          <option value="0" {% if pre.smoke=='0' or not pre.smoke %}selected{% endif %}>No</option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Alcohol</label>
+        <select id="alco" class="form-select" onchange="run()">
+          <option value="1" {% if pre.alco=='1' %}selected{% endif %}>Yes</option>
+          <option value="0" {% if pre.alco=='0' or not pre.alco %}selected{% endif %}>No</option>
+        </select>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label">Physical Activity</label>
+        <select id="active" class="form-select" onchange="run()">
+          <option value="1" {% if pre.active=='1' or not pre.active %}selected{% endif %}>Active</option>
+          <option value="0" {% if pre.active=='0' %}selected{% endif %}>Not Active</option>
+        </select>
+      </div>
+
+      <div class="mini text-center">Changes apply instantly — no form submission needed.</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Result -->
+  <div class="col-lg-7">
+    <div class="form-card p-4 p-md-5 fade-in" id="resultPanel">
+
+      <!-- Loading state -->
+      <div id="loadingState" class="text-center py-4" style="display:none">
+        <div class="spinner" style="width:32px;height:32px;border-width:3px;display:inline-block"></div>
+        <div class="mini mt-2">Calculating...</div>
+      </div>
+
+      <!-- Result state -->
+      <div id="resultState">
+        <div class="d-flex align-items-center justify-content-between mb-4">
+          <div class="section-title">Risk Comparison</div>
+          <span class="pill">Live Simulation</span>
+        </div>
+
+        <!-- Two risk boxes side-by-side -->
+        <div class="row g-3 mb-4">
+          <div class="col-6">
+            <div class="text-center p-4 rounded-4" id="currentBox"
+                 style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3)">
+              <div class="mini mb-1">Current Risk</div>
+              <div class="fw-bold" id="currentVal" style="font-size:2.5rem;color:#ef4444">—%</div>
+              <div class="mini mt-1" id="currentBmi">BMI: —</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="text-center p-4 rounded-4" id="modifiedBox"
+                 style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3)">
+              <div class="mini mb-1">After Changes</div>
+              <div class="fw-bold" id="modifiedVal" style="font-size:2.5rem;color:#22c55e">—%</div>
+              <div class="mini mt-1" id="modifiedBmi">BMI: —</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Delta message -->
+        <div id="deltaMsg" class="text-center p-3 rounded-4 mb-4"
+             style="background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.2)">
+          <span id="deltaText" class="fw-bold">Adjust the sliders to see impact →</span>
+        </div>
+
+        <!-- Progress bars -->
+        <div class="mb-2 d-flex justify-content-between mini">
+          <span>Current</span><span id="barCurrent">0%</span>
+        </div>
+        <div style="background:rgba(255,255,255,.08);border-radius:999px;height:14px;margin-bottom:8px">
+          <div id="barCurrentFill" style="height:14px;border-radius:999px;background:rgba(239,68,68,.7);width:0%;transition:width .5s ease"></div>
+        </div>
+
+        <div class="mb-2 d-flex justify-content-between mini">
+          <span>After Changes</span><span id="barModified">0%</span>
+        </div>
+        <div style="background:rgba(255,255,255,.08);border-radius:999px;height:14px;margin-bottom:24px">
+          <div id="barModifiedFill" style="height:14px;border-radius:999px;background:rgba(34,197,94,.7);width:0%;transition:width .5s ease"></div>
+        </div>
+
+        <!-- Tips -->
+        <div class="divider my-3"></div>
+        <div class="section-title mb-2">Quick Wins (highest impact)</div>
+        <div id="tipsList" class="mini">Adjust sliders above to see recommendations.</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let debounceTimer = null;
+
+function syncLabel(el, labelId, unit) {
+  document.getElementById(labelId).textContent = el.value + ' ' + unit;
+}
+
+function run() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(doSimulate, 300);
+}
+
+function doSimulate() {
+  const baseData = new FormData();
+  baseData.append('age',    document.getElementById('age').value);
+  baseData.append('gender', document.getElementById('gender').value);
+  baseData.append('height', document.getElementById('height').value);
+  baseData.append('gluc',   document.getElementById('gluc').value);
+
+  // Current values (sent as baseline)
+  const weight = document.getElementById('weight').value;
+  const ap_hi  = document.getElementById('ap_hi').value;
+  const ap_lo  = document.getElementById('ap_lo').value;
+  const chol   = document.getElementById('cholesterol').value;
+  const smoke  = document.getElementById('smoke').value;
+  const alco   = document.getElementById('alco').value;
+  const active = document.getElementById('active').value;
+
+  baseData.append('weight',      weight);
+  baseData.append('ap_hi',       ap_hi);
+  baseData.append('ap_lo',       ap_lo);
+  baseData.append('cholesterol', chol);
+  baseData.append('smoke',       smoke);
+  baseData.append('alco',        alco);
+  baseData.append('active',      active);
+
+  // Modified = same (user sees delta by moving sliders — current IS the modified)
+  baseData.append('weight2',      weight);
+  baseData.append('ap_hi2',       ap_hi);
+  baseData.append('ap_lo2',       ap_lo);
+  baseData.append('cholesterol2', chol);
+  baseData.append('smoke2',       smoke);
+  baseData.append('alco2',        alco);
+  baseData.append('active2',      active);
+
+  // Get "original" (from page pre-fill values which represent base state)
+  const origWeight = {{ pre.weight or 70 }};
+  const origApHi   = {{ pre.ap_hi or 130 }};
+  const origApLo   = {{ pre.ap_lo or 85 }};
+  const origChol   = {{ pre.cholesterol or 1 }};
+  const origSmoke  = {{ pre.smoke or 0 }};
+  const origAlco   = {{ pre.alco or 0 }};
+  const origActive = {{ pre.active or 1 }};
+
+  // Send original as "current", slider values as "modified"
+  const fd = new FormData();
+  fd.append('age', document.getElementById('age').value);
+  fd.append('gender', document.getElementById('gender').value);
+  fd.append('height', document.getElementById('height').value);
+  fd.append('gluc', document.getElementById('gluc').value);
+  fd.append('weight', origWeight);
+  fd.append('ap_hi',  origApHi);
+  fd.append('ap_lo',  origApLo);
+  fd.append('cholesterol', origChol);
+  fd.append('smoke',  origSmoke);
+  fd.append('alco',   origAlco);
+  fd.append('active', origActive);
+  // Modified scenario (slider values)
+  fd.append('weight2',      weight);
+  fd.append('ap_hi2',       ap_hi);
+  fd.append('ap_lo2',       ap_lo);
+  fd.append('cholesterol2', chol);
+  fd.append('smoke2',       smoke);
+  fd.append('alco2',        alco);
+  fd.append('active2',      active);
+
+  fetch('/simulate_api', { method:'POST', body:fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) return;
+      const cur = d.current, mod = d.modified, delta = d.delta;
+
+      document.getElementById('currentVal').textContent   = cur + '%';
+      document.getElementById('modifiedVal').textContent  = mod + '%';
+      document.getElementById('currentBmi').textContent   = 'BMI: ' + d.bmi_current;
+      document.getElementById('modifiedBmi').textContent  = 'BMI: ' + d.bmi_modified;
+      document.getElementById('barCurrent').textContent   = cur + '%';
+      document.getElementById('barModified').textContent  = mod + '%';
+      document.getElementById('barCurrentFill').style.width  = Math.min(cur,100) + '%';
+      document.getElementById('barModifiedFill').style.width = Math.min(mod,100) + '%';
+
+      // Color delta box
+      const dEl = document.getElementById('deltaMsg');
+      const dText = document.getElementById('deltaText');
+      if (Math.abs(delta) < 0.5) {
+        dText.textContent = 'No significant change from current baseline.';
+        dEl.style.background = 'rgba(167,139,250,.08)';
+        dEl.style.borderColor = 'rgba(167,139,250,.2)';
+      } else if (delta > 0) {
+        dText.textContent = `Risk increases by ${Math.abs(delta)}% with these changes.`;
+        dEl.style.background = 'rgba(239,68,68,.1)';
+        dEl.style.borderColor = 'rgba(239,68,68,.3)';
+      } else {
+        dText.textContent = `Risk decreases by ${Math.abs(delta)}% with these changes!`;
+        dEl.style.background = 'rgba(34,197,94,.1)';
+        dEl.style.borderColor = 'rgba(34,197,94,.3)';
+      }
+
+      // Quick-win tips
+      const tips = [];
+      if (origSmoke == 1 && smoke == 0)   tips.push('Quitting smoking reduces cardiovascular risk by up to 50%.');
+      if (origAlco  == 1 && alco  == 0)   tips.push('Eliminating alcohol reduces blood pressure and heart strain.');
+      if (origActive == 0 && active == 1) tips.push('Becoming active can reduce risk by 35% over time.');
+      if (parseFloat(weight) < origWeight - 4) tips.push(`Losing ${(origWeight - weight).toFixed(0)} kg improves BMI from ${d.bmi_current} to ${d.bmi_modified}.`);
+      if (parseFloat(ap_hi) < origApHi - 10)  tips.push('Lowering systolic BP below 130 significantly reduces stroke risk.');
+      if (parseInt(chol) < origChol)         tips.push('Reducing cholesterol helps prevent artery plaque formation.');
+
+      document.getElementById('tipsList').innerHTML = tips.length
+        ? tips.map(t => `<div class="mb-1">&#10003; ${t}</div>`).join('')
+        : 'Move sliders to see personalized recommendations.';
+    });
+}
+
+// Auto-run on load if pre-filled
+window.addEventListener('DOMContentLoaded', () => setTimeout(run, 200));
+</script>
+{% endblock %}

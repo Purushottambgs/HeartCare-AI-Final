@@ -1,0 +1,277 @@
+{% extends 'base.html' %}
+{% set title = 'HeartCare AI • AI Coach' %}
+
+{% block head %}
+<style>
+.voice-btn{
+  width:52px; height:52px; border-radius:50%; border:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.3rem; cursor:pointer; flex-shrink:0;
+  background:linear-gradient(135deg,rgba(124,58,237,.35),rgba(6,182,212,.25));
+  border:1px solid rgba(124,58,237,.4);
+  transition:all .2s;
+}
+.voice-btn:hover{ transform:scale(1.1); background:linear-gradient(135deg,rgba(124,58,237,.55),rgba(6,182,212,.45)); }
+.voice-btn.listening{
+  background:linear-gradient(135deg,rgba(239,68,68,.5),rgba(239,68,68,.3));
+  border-color:rgba(239,68,68,.6);
+  animation:voicePulse 1s ease-in-out infinite;
+}
+@keyframes voicePulse{
+  0%,100%{ box-shadow:0 0 0 0 rgba(239,68,68,.4) }
+  50%{ box-shadow:0 0 0 12px rgba(239,68,68,0) }
+}
+.speak-btn{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 14px; border-radius:999px; border:0; cursor:pointer;
+  font-size:.82rem; font-weight:600;
+  background:rgba(6,182,212,.15); color:rgba(103,232,249,.9);
+  border:1px solid rgba(6,182,212,.3);
+  transition:background .15s;
+}
+.speak-btn:hover{ background:rgba(6,182,212,.28); }
+.quick-ask{
+  padding:8px 14px; border-radius:999px; border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,.05); color:rgba(234,240,255,.85);
+  font-size:.84rem; cursor:pointer; transition:background .15s, border-color .15s;
+}
+.quick-ask:hover{ background:rgba(124,58,237,.18); border-color:rgba(124,58,237,.4); }
+.answer-box{
+  background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+  border-radius:16px; padding:20px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+  <!-- Header -->
+  <div class="hero-card p-4 p-md-5 mb-4 slide-up">
+    <div class="kicker mb-2">AI Health Coach</div>
+    <h1 class="mb-3">Smart Health Assistant</h1>
+    {% if user_ctx %}
+    <div class="p-3 rounded-4 mb-3" style="background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.3)">
+      <div class="fw-bold mb-1">Personalized for {{ user_ctx.name }}</div>
+      <div class="sub">
+        Latest risk: <strong>{{ user_ctx.risk }}%</strong> ({{ user_ctx.level }}) &nbsp;|&nbsp;
+        BP: {{ user_ctx.bp }} mmHg &nbsp;|&nbsp; BMI: {{ user_ctx.bmi }}
+      </div>
+      <div class="mini mt-1">Try: "my risk", "my BP", "my BMI" for personalized answers.</div>
+    </div>
+    {% else %}
+    <p class="sub mb-0">
+      Ask anything about heart health — blood pressure, cholesterol, BMI, diet, exercise, ECG.
+      <a href="/login" style="color:rgba(167,139,250,.9)">Log in</a> for personalized advice.
+    </p>
+    {% endif %}
+  </div>
+
+  <div class="row g-4">
+
+    <!-- ── LEFT: Ask form + answer ── -->
+    <div class="col-lg-7">
+      <div class="form-card p-4 p-md-5 h-100 fade-in">
+
+        <h5 class="section-title mb-3">💬 Ask Your Question</h5>
+        <div class="divider my-3"></div>
+
+        <form method="POST" action="/ai_assistant" id="assistantForm">
+          <div class="mb-3">
+            <label class="form-label">Your question</label>
+            <div class="d-flex gap-2 align-items-start">
+              <textarea name="user_query" class="form-control" rows="4" id="queryInput"
+                        placeholder="e.g. How can I reduce blood pressure naturally?"
+                        required>{{ user_query }}</textarea>
+              <!-- Voice input button -->
+              <button type="button" class="voice-btn" id="voiceBtn" title="Speak your question">🎤</button>
+            </div>
+            <div class="mini mt-1" id="voiceStatus" style="color:rgba(6,182,212,.8)"></div>
+          </div>
+
+          <div class="d-flex gap-2 flex-wrap">
+            <button type="submit" class="btn btn-glow btn-lg">🤖 Ask Assistant</button>
+            <button type="button" class="btn btn-ghost btn-lg" id="clearBtn">✕ Clear</button>
+          </div>
+        </form>
+
+        <!-- Quick Ask Chips -->
+        <div class="mt-4">
+          <div class="mini mb-2">Quick Questions</div>
+          <div class="d-flex flex-wrap gap-2">
+            {% for q in [
+              'How to reduce blood pressure?',
+              'What foods lower cholesterol?',
+              'Best exercise for heart health?',
+              'How does smoking affect the heart?',
+              'What is a healthy BMI?',
+              'How to control blood sugar?'
+            ] %}
+            <button class="quick-ask" type="button">{{ q }}</button>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Answer -->
+        {% if answer %}
+        <div class="divider my-4"></div>
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <div class="mini fw-bold">🤖 Assistant Response</div>
+          <button class="speak-btn" type="button" id="speakBtn" data-text="{{ answer|striptags }}">
+            🔊 Speak
+          </button>
+          <button class="speak-btn" type="button" id="stopBtn" style="background:rgba(239,68,68,.15);color:rgba(252,165,165,.9);border-color:rgba(239,68,68,.3)">
+            ⏹ Stop
+          </button>
+        </div>
+        <div class="answer-box">
+          <div class="fs-5">{{ answer|safe }}</div>
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+
+    <!-- ── RIGHT: Sidebar ── -->
+    <div class="col-lg-5">
+      <div class="hero-card p-4 p-md-5 h-100 card-raise d-flex flex-column gap-3">
+
+        <div>
+          <h5 class="section-title mb-3">💡 Suggested Topics</h5>
+          <div class="divider my-3"></div>
+
+          {% if user_ctx %}
+          <div class="mini fw-bold mb-2" style="color:rgba(167,139,250,.8)">Your Personal Data</div>
+          <ul class="m-0 ps-3 mb-3" style="color:rgba(234,240,255,.82);line-height:2">
+            <li><button class="quick-ask border-0 bg-transparent p-0 text-inherit" style="color:inherit;cursor:pointer">my risk</button></li>
+            <li><button class="quick-ask border-0 bg-transparent p-0 text-inherit" style="color:inherit;cursor:pointer">my BP</button></li>
+            <li><button class="quick-ask border-0 bg-transparent p-0 text-inherit" style="color:inherit;cursor:pointer">my BMI</button></li>
+          </ul>
+          <div class="mini fw-bold mb-2">General Topics</div>
+          {% endif %}
+
+          <ul class="m-0 ps-3" style="color:rgba(234,240,255,.82);line-height:1.9;font-size:.9rem">
+            <li>How to reduce heart disease risk?</li>
+            <li>Why is high blood pressure dangerous?</li>
+            <li>What does high cholesterol do?</li>
+            <li>How does BMI affect heart health?</li>
+            <li>What foods are good for heart health?</li>
+            <li>Why is exercise important?</li>
+            <li>How does smoking affect the heart?</li>
+            <li>What happens if glucose is high?</li>
+          </ul>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Voice Assistant Info -->
+        <div class="p-3 rounded-4" style="background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.25)">
+          <div class="fw-bold mb-1" style="color:rgba(103,232,249,.9)">🎤 Voice Assistant</div>
+          <div class="sub" style="font-size:.83rem">
+            Click the mic button to speak your question. The assistant will also
+            read answers aloud — click 🔊 Speak after getting a response.
+            Works on Chrome, Edge, Safari.
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="mini">⚕️ Note</div>
+        <div class="sub" style="font-size:.82rem">
+          Educational guidance only. Not a substitute for professional medical advice.
+        </div>
+
+        <div class="d-grid gap-2">
+          <a href="/" class="btn btn-glow">Check Risk Now</a>
+          <a href="/about_heart_disease" class="btn btn-ghost">About Heart Disease</a>
+          <a href="/dashboard" class="btn btn-ghost">View Dashboard</a>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Quick ask chips ────────���───────────────────────────────────
+document.querySelectorAll('.quick-ask').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const qi = document.getElementById('queryInput');
+    if (qi) { qi.value = btn.textContent.trim(); qi.focus(); }
+  });
+});
+
+// ── Clear button ────────��──────────────────────────────────────
+const clearBtn = document.getElementById('clearBtn');
+if (clearBtn) {
+  clearBtn.addEventListener('click', () => {
+    const qi = document.getElementById('queryInput');
+    if (qi) { qi.value = ''; qi.focus(); }
+  });
+}
+
+// ── Voice Input (Web Speech API) ──────────────��───────────────
+const voiceBtn    = document.getElementById('voiceBtn');
+const voiceStatus = document.getElementById('voiceStatus');
+const queryInput  = document.getElementById('queryInput');
+
+if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new SR();
+  rec.continuous = false;
+  rec.interimResults = true;
+  rec.lang = 'en-US';
+
+  rec.onstart = () => {
+    voiceBtn.classList.add('listening');
+    voiceBtn.textContent = '🔴';
+    if (voiceStatus) voiceStatus.textContent = '🎙 Listening… speak now';
+  };
+  rec.onresult = (e) => {
+    const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+    if (queryInput) queryInput.value = transcript;
+  };
+  rec.onend = () => {
+    voiceBtn.classList.remove('listening');
+    voiceBtn.textContent = '🎤';
+    if (voiceStatus) voiceStatus.textContent = '✅ Voice captured — click Ask Assistant';
+  };
+  rec.onerror = () => {
+    voiceBtn.classList.remove('listening');
+    voiceBtn.textContent = '🎤';
+    if (voiceStatus) voiceStatus.textContent = '❌ Could not hear — try again';
+  };
+
+  if (voiceBtn) {
+    voiceBtn.addEventListener('click', () => {
+      if (voiceBtn.classList.contains('listening')) { rec.stop(); }
+      else { rec.start(); }
+    });
+  }
+} else {
+  if (voiceBtn) { voiceBtn.title = 'Voice not supported in this browser'; voiceBtn.style.opacity = '.4'; }
+}
+
+// ── Text-to-Speech (speak answer) ────────────────────────────
+const speakBtn = document.getElementById('speakBtn');
+const stopBtn  = document.getElementById('stopBtn');
+
+if (speakBtn && 'speechSynthesis' in window) {
+  speakBtn.addEventListener('click', () => {
+    window.speechSynthesis.cancel();
+    const text = speakBtn.dataset.text || '';
+    const utt  = new SpeechSynthesisUtterance(text);
+    utt.lang  = 'en-US';
+    utt.rate  = 0.95;
+    utt.pitch = 1;
+    window.speechSynthesis.speak(utt);
+  });
+}
+if (stopBtn) {
+  stopBtn.addEventListener('click', () => { window.speechSynthesis.cancel(); });
+}
+</script>
+{% endblock %}

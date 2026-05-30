@@ -1,0 +1,678 @@
+{% extends 'base.html' %}
+{% set title = 'HeartCare AI • About Cardiovascular Disease' %}
+
+{% block head %}
+<style>
+/* ─── Stat cards ─── */
+.who-stat{
+  border:1px solid var(--border);
+  background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.04));
+  border-radius:18px; padding:24px 20px; text-align:center;
+  transition:transform .18s,border-color .18s;
+}
+.who-stat:hover{ transform:translateY(-3px); border-color:rgba(239,68,68,.35) }
+.who-stat .big-num{ font-size:2.4rem; font-weight:900; line-height:1; background:linear-gradient(135deg,#fca5a5,#ef4444); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text }
+.who-stat .unit{ font-size:.85rem; color:var(--muted); font-weight:500 }
+.who-stat .label{ font-size:.82rem; color:var(--muted); margin-top:4px }
+
+/* ─── Section header ─── */
+.sec-head{ display:flex; align-items:center; gap:12px; margin-bottom:1.5rem }
+.sec-icon{ width:44px; height:44px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:1.3rem; flex-shrink:0 }
+.sec-icon.red  { background:rgba(239,68,68,.18); border:1px solid rgba(239,68,68,.3) }
+.sec-icon.violet{ background:rgba(124,58,237,.18); border:1px solid rgba(124,58,237,.3) }
+.sec-icon.cyan { background:rgba(6,182,212,.18); border:1px solid rgba(6,182,212,.3) }
+.sec-icon.green{ background:rgba(34,197,94,.18); border:1px solid rgba(34,197,94,.3) }
+.sec-icon.amber{ background:rgba(251,191,36,.18); border:1px solid rgba(251,191,36,.3) }
+
+/* ─── CVD type cards ─── */
+.cvd-type{
+  border:1px solid var(--border);
+  background:rgba(255,255,255,.05);
+  border-radius:14px; padding:16px;
+  transition:border-color .18s, transform .18s;
+}
+.cvd-type:hover{ border-color:rgba(124,58,237,.4); transform:translateY(-2px) }
+.cvd-type .cvd-icon{ font-size:2rem; margin-bottom:8px }
+.cvd-type .cvd-name{ font-weight:700; font-size:.92rem; margin-bottom:4px }
+.cvd-type .cvd-desc{ font-size:.8rem; color:var(--muted) }
+
+/* ─── Risk factor badges ─── */
+.risk-mod{ background:rgba(239,68,68,.14); border:1px solid rgba(239,68,68,.28); border-radius:12px; padding:12px 14px }
+.risk-non{ background:rgba(124,58,237,.10); border:1px solid rgba(124,58,237,.22); border-radius:12px; padding:12px 14px }
+.risk-tag{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 12px; border-radius:999px; font-size:.82rem; font-weight:600;
+  background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12);
+  margin:3px;
+}
+
+/* ─── Warning signs ─── */
+.warn-card{
+  border:1px solid rgba(239,68,68,.3);
+  background:rgba(239,68,68,.08);
+  border-radius:16px; padding:20px;
+}
+.warn-item{ display:flex; align-items:flex-start; gap:10px; padding:8px 0; border-bottom:1px dashed rgba(255,255,255,.1) }
+.warn-item:last-child{ border-bottom:0 }
+.warn-dot{ width:32px; height:32px; border-radius:50%; background:rgba(239,68,68,.22); border:1px solid rgba(239,68,68,.4); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:.9rem }
+
+/* ─── FAST banner ─── */
+.fast-box{
+  background:linear-gradient(135deg,rgba(239,68,68,.2),rgba(239,68,68,.08));
+  border:1px solid rgba(239,68,68,.45); border-radius:18px; padding:24px;
+}
+.fast-letter{ font-size:2.5rem; font-weight:900; color:#ef4444; line-height:1 }
+.fast-label{ font-weight:700; font-size:1rem }
+.fast-desc{ font-size:.85rem; color:var(--muted) }
+
+/* ─── Prevention steps ─── */
+.prev-step{ display:flex; align-items:flex-start; gap:14px; padding:14px 0; border-bottom:1px dashed rgba(255,255,255,.09) }
+.prev-step:last-child{ border-bottom:0 }
+.prev-num{ width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,var(--accent),var(--accent2)); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.9rem; color:white }
+
+/* ─── Accordion ─── */
+.faq-btn{ background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:12px; color:var(--text); padding:14px 16px; font-weight:600; font-size:.88rem; text-align:left; width:100%; transition:background .15s }
+.faq-btn:hover{ background:rgba(255,255,255,.08) }
+.faq-btn::after{ filter:invert(1) }
+body[data-theme="light"] .faq-btn::after{ filter:none }
+.faq-body{ font-size:.88rem; color:var(--muted); line-height:1.75; padding:0 4px }
+
+/* ─── India specific ─── */
+.india-bar{ background:linear-gradient(90deg,rgba(6,182,212,.15),rgba(6,182,212,.05)); border:1px solid rgba(6,182,212,.3); border-radius:14px; padding:14px 18px }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══════════════════════════════════════
+     HERO
+══════════════════════════════════════ -->
+<div class="hero-card p-4 p-md-5 mb-5 slide-up" style="overflow:hidden">
+  <div class="row align-items-center g-4">
+    <div class="col-lg-7">
+      <div class="kicker mb-2">WHO • Cleveland Clinic • HeartCare AI</div>
+      <h1 class="mb-3" style="font-size:clamp(1.8rem,3.5vw,2.8rem);background:linear-gradient(135deg,var(--text) 50%,rgba(252,165,165,.85));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.1">
+        Cardiovascular<br>Disease — Complete Guide
+      </h1>
+      <p class="sub mb-4">
+        Heart aur blood vessel ki diseases duniya ki <strong style="color:#fca5a5">sabse badi killer</strong> hain —
+        har saal 17.9 million log in bimariyon se marte hain.
+        Iss guide mein jaano — kya hai CVD, kyun hota hai, aur kaise bachein.
+      </p>
+      <div class="d-flex flex-wrap gap-2">
+        <a href="#types"       class="pill" style="text-decoration:none;cursor:pointer">📋 Types</a>
+        <a href="#risk"        class="pill" style="text-decoration:none;cursor:pointer">⚠️ Risk Factors</a>
+        <a href="#warning"     class="pill" style="text-decoration:none;cursor:pointer">🚨 Warning Signs</a>
+        <a href="#prevention"  class="pill" style="text-decoration:none;cursor:pointer">🛡️ Prevention</a>
+        <a href="#faq"         class="pill" style="text-decoration:none;cursor:pointer">❓ FAQ</a>
+      </div>
+    </div>
+    <div class="col-lg-5 text-center">
+      <div style="font-size:8rem;filter:drop-shadow(0 0 30px rgba(239,68,68,.4))">🫀</div>
+      <div class="mini mt-2" style="opacity:.55">Sources: WHO 2021 • Cleveland Clinic • ICMR</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     GLOBAL STATS
+══════════════════════════════════════ -->
+<div class="mb-5 fade-in">
+  <div class="sec-head">
+    <div class="sec-icon red">📊</div>
+    <div>
+      <h2 class="mb-0" style="font-size:1.4rem">Global Statistics (WHO 2023)</h2>
+      <div class="mini" style="opacity:.6">Cardiovascular diseases remain the No. 1 cause of death worldwide</div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-6 col-md-3">
+      <div class="who-stat">
+        <div class="big-num">17.9M</div>
+        <div class="unit">deaths/year</div>
+        <div class="label">CVD global deaths</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="who-stat">
+        <div class="big-num">32%</div>
+        <div class="unit">of all deaths</div>
+        <div class="label">Global mortality share</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="who-stat">
+        <div class="big-num">85%</div>
+        <div class="unit">CVD deaths</div>
+        <div class="label">Due to heart attack & stroke</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="who-stat">
+        <div class="big-num">4.6M</div>
+        <div class="unit">deaths (India)</div>
+        <div class="label">Largest CVD burden globally</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- India box -->
+<div class="india-bar mb-5 d-flex align-items-start gap-3">
+  <div style="font-size:2rem;flex-shrink:0">🇮🇳</div>
+  <div>
+    <div class="fw-bold mb-1" style="color:#67e8f9">India — Alarming Facts (ICMR 2022)</div>
+    <div class="mini" style="line-height:1.85">
+      India mein CVD deaths duniya mein <strong style="color:#67e8f9">sabse zyada</strong> hain.
+      India ke har 4 mein se 1 maut cardiovascular disease se hoti hai.
+      Urban Indians mein average heart attack age <strong style="color:#67e8f9">50 saal</strong> hai —
+      western countries se <strong style="color:#67e8f9">10 saal pehle</strong>.
+      South Asian (desi) ancestry khud ek risk factor hai.
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     WHAT IS CVD
+══════════════════════════════════════ -->
+<div class="form-card p-4 p-md-5 mb-5 fade-in">
+  <div class="sec-head">
+    <div class="sec-icon violet">🫀</div>
+    <div>
+      <h2 class="mb-0" style="font-size:1.4rem">Cardiovascular Disease kya hai?</h2>
+      <div class="mini" style="opacity:.6">Heart aur blood vessel diseases ka samuh</div>
+    </div>
+  </div>
+
+  <p style="color:var(--muted);line-height:1.9;font-size:.95rem">
+    Cardiovascular Disease (CVD) ek broad term hai jo <strong style="color:var(--text)">heart aur blood vessels</strong> se judi bimariyon ke liye use hoti hai.
+    Jab arteries mein fat, cholesterol aur aur substances (plaque) jama ho jaate hain —
+    ise <em>atherosclerosis</em> kehte hain — toh blood flow restricted ho jaata hai.
+    Iss blockage ki wajah se heart attack, stroke ya heart failure ho sakti hai.
+  </p>
+
+  <p style="color:var(--muted);line-height:1.9;font-size:.95rem;margin-bottom:0">
+    CVD ka matlab sirf "heart attack" nahi — yeh ek <strong style="color:var(--text)">lifelong, progressive disease</strong> hai
+    jo dheere dheere develop hoti hai. Achhi baat yeh hai ki <strong style="color:#22c55e">80% CVD deaths preventable hain</strong> —
+    lifestyle changes aur early treatment se.
+  </p>
+</div>
+
+<!-- ══════════════════════════════════════
+     TYPES OF CVD
+══════════════════════════════════════ -->
+<div id="types" class="mb-5">
+  <div class="sec-head">
+    <div class="sec-icon cyan">📋</div>
+    <div>
+      <h2 class="mb-0" style="font-size:1.4rem">Types of Cardiovascular Disease</h2>
+      <div class="mini" style="opacity:.6">8 major types — har ek alag mechanism se hota hai</div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-6 col-lg-3">
+      <div class="cvd-type h-100">
+        <div class="cvd-icon">🩸</div>
+        <div class="cvd-name">Coronary Artery Disease (CAD)</div>
+        <div class="cvd-desc">Sabse common — heart ko blood supply karne wali arteries mein plaque block kar deta hai. Angina ya heart attack hoti hai.</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+      <div class="cvd-type h-100">
+        <div class="cvd-icon">🧠</div>
+        <div class="cvd-name">Cerebrovascular Disease (Stroke)</div>
+        <div class="cvd-desc">Brain ki blood supply rukat hai. Ischemic stroke (clot) ya hemorrhagic stroke (bleeding) — paralysis ya death ho sakti hai.</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+      <div class="cvd-type h-100">
+        <div class="cvd-icon">💔</div>
+        <div class="cvd-name">Heart Failure</div>
+        <div class="cvd-desc">Heart itna kamzor ho jaata hai ki body ko enough blood pump nahi kar pata. Swelling, breathlessness, fatigue.</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+      <div class="cvd-type h-100">
+        <div class="cvd-icon">⚡</div>
+        <div class="cvd-name">Arrhythmia</div>
+        <div class="cvd-desc">Heart ki abnormal rhythm — too fast (tachycardia), too slow (bradycardia), ya irregular (AFib). Sudden cardiac death ka risk.</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+      <div class="cvd-type h-100">
+        <div class="cvd-icon">🦵</div>
+        <div class="cvd-name">Peripheral Artery Disease</div>
+        <div class="cvd-desc">Legs aur arms ki arteries block ho jaati hain. Chalne mein dard (claudication), non-healing wounds.</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+      <div class="cvd-type h-100">
+        <div class="cvd-icon">🔵</div>
+        <div class="cvd-name">Congenital Heart Disease</div>
+        <div class="cvd-desc">Janam se dil mein structural defect. India mein 2 lakh+ babies har saal is se paida hote hain.</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+      <div class="cvd-type h-100">
+        <div class="cvd-icon">🫁</div>
+        <div class="cvd-name">Rheumatic Heart Disease</div>
+        <div class="cvd-desc">Strep throat (bacteria) se heart valves damage ho jaate hain. India aur developing countries mein zyada common.</div>
+      </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+      <div class="cvd-type h-100">
+        <div class="cvd-icon">🏗️</div>
+        <div class="cvd-name">Cardiomyopathy</div>
+        <div class="cvd-desc">Heart muscle ka disease — thickened, enlarged ya rigid ho jaata hai. Pump function drastically kamzor.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     RISK FACTORS
+══════════════════════════════════════ -->
+<div id="risk" class="mb-5">
+  <div class="sec-head">
+    <div class="sec-icon red">⚠️</div>
+    <div>
+      <h2 class="mb-0" style="font-size:1.4rem">Risk Factors</h2>
+      <div class="mini" style="opacity:.6">Modifiable (badal sakte ho) vs Non-modifiable (nahi badal sakte)</div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="risk-mod h-100">
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <span style="font-size:1.3rem">✅</span>
+          <div class="fw-bold" style="color:#fca5a5">Modifiable Risk Factors</div>
+          <span class="pill" style="font-size:.72rem;padding:.2rem .55rem;background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.3);color:#86efac">Can be changed</span>
+        </div>
+        <div class="mb-2 mini" style="opacity:.65">These factors can be controlled with lifestyle changes & medication:</div>
+        <div>
+          <span class="risk-tag">🩸 High Blood Pressure</span>
+          <span class="risk-tag">🥚 High Cholesterol (LDL)</span>
+          <span class="risk-tag">🚬 Tobacco / Smoking</span>
+          <span class="risk-tag">🍔 Unhealthy Diet</span>
+          <span class="risk-tag">🏋️ Physical Inactivity</span>
+          <span class="risk-tag">⚖️ Obesity / Overweight</span>
+          <span class="risk-tag">🍬 Diabetes (Type 2)</span>
+          <span class="risk-tag">🍷 Alcohol Use</span>
+          <span class="risk-tag">😰 Chronic Stress</span>
+          <span class="risk-tag">😴 Sleep Apnea</span>
+          <span class="risk-tag">🌫️ Air Pollution</span>
+          <span class="risk-tag">💊 Poor Medication Adherence</span>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="risk-non h-100">
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <span style="font-size:1.3rem">🔒</span>
+          <div class="fw-bold" style="color:#c4b5fd">Non-Modifiable Risk Factors</div>
+          <span class="pill" style="font-size:.72rem;padding:.2rem .55rem;background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.25);color:#fca5a5">Fixed</span>
+        </div>
+        <div class="mb-3 mini" style="opacity:.65">These cannot be changed but can be monitored closely:</div>
+
+        <div class="prev-step" style="padding:10px 0">
+          <div class="warn-dot" style="background:rgba(124,58,237,.18);border-color:rgba(124,58,237,.35)">👴</div>
+          <div><div class="fw-bold" style="font-size:.88rem">Age</div><div class="mini" style="opacity:.7">Risk 45+ men, 55+ women ke baad dramatically badhta hai</div></div>
+        </div>
+        <div class="prev-step" style="padding:10px 0">
+          <div class="warn-dot" style="background:rgba(124,58,237,.18);border-color:rgba(124,58,237,.35)">👨</div>
+          <div><div class="fw-bold" style="font-size:.88rem">Biological Sex</div><div class="mini" style="opacity:.7">Men mein earlier risk; post-menopause women ka risk equal ho jaata hai</div></div>
+        </div>
+        <div class="prev-step" style="padding:10px 0">
+          <div class="warn-dot" style="background:rgba(124,58,237,.18);border-color:rgba(124,58,237,.35)">🧬</div>
+          <div><div class="fw-bold" style="font-size:.88rem">Family History / Genetics</div><div class="mini" style="opacity:.7">First-degree relative (parent/sibling) ko early CVD = risk 2x zyada</div></div>
+        </div>
+        <div class="prev-step" style="padding:10px 0">
+          <div class="warn-dot" style="background:rgba(124,58,237,.18);border-color:rgba(124,58,237,.35)">🌍</div>
+          <div><div class="fw-bold" style="font-size:.88rem">Ethnicity / Ancestry</div><div class="mini" style="opacity:.7">South Asians (Indian, Pakistani) ka metabolic risk genetically higher hai — same BMI pe zyada fat percentage</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     WARNING SIGNS
+══════════════════════════════════════ -->
+<div id="warning" class="mb-5">
+  <div class="sec-head">
+    <div class="sec-icon red">🚨</div>
+    <div>
+      <h2 class="mb-0" style="font-size:1.4rem">Warning Signs — Turant Dhyan Do</h2>
+      <div class="mini" style="opacity:.6">Heart attack aur stroke mein ek ek minute count karta hai</div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Heart Attack -->
+    <div class="col-lg-6">
+      <div class="warn-card h-100">
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <span style="font-size:1.5rem">💔</span>
+          <h3 class="mb-0" style="font-size:1.1rem;color:#fca5a5">Heart Attack (Dil Ka Daura)</h3>
+        </div>
+        <div class="mini mb-3" style="opacity:.7">Symptoms suddenly ya dheere dheere shuru ho sakte hain. Kabhi kabhi sirf thakan lagti hai.</div>
+        <div class="warn-item">
+          <div class="warn-dot">💢</div>
+          <div><div class="fw-bold" style="font-size:.88rem">Chest Discomfort</div><div class="mini" style="opacity:.7">Pressure, squeezing, fullness, ya dard — chest ke beech mein, kuch minutes tak ya bar bar aata jaata hai</div></div>
+        </div>
+        <div class="warn-item">
+          <div class="warn-dot">💨</div>
+          <div><div class="fw-bold" style="font-size:.88rem">Breathlessness</div><div class="mini" style="opacity:.7">Rest mein bhi saans lene mein takleef — chest pain ke saath ya akela bhi</div></div>
+        </div>
+        <div class="warn-item">
+          <div class="warn-dot">🦾</div>
+          <div><div class="fw-bold" style="font-size:.88rem">Upper Body Discomfort</div><div class="mini" style="opacity:.7">Ek ya dono arms, back, neck, jaw, ya stomach mein dard ya discomfort</div></div>
+        </div>
+        <div class="warn-item">
+          <div class="warn-dot">🥵</div>
+          <div><div class="fw-bold" style="font-size:.88rem">Cold Sweat, Nausea, Lightheadedness</div><div class="mini" style="opacity:.7">Achanak paseena, ulti jaisi feeling, ya sir chakrana — in sab ko ignore mat karo</div></div>
+        </div>
+        <div class="warn-item">
+          <div class="warn-dot">😴</div>
+          <div><div class="fw-bold" style="font-size:.88rem">Unusual Fatigue (Women mein zyada)</div><div class="mini" style="opacity:.7">Kuch din pehle se extreme thakan — women ke heart attack symptoms atypical hote hain</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stroke FAST -->
+    <div class="col-lg-6">
+      <div class="fast-box h-100">
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <span style="font-size:1.5rem">🧠</span>
+          <h3 class="mb-0" style="font-size:1.1rem;color:#fca5a5">Stroke — F.A.S.T. Rule Yaad Rakho</h3>
+        </div>
+        <div class="mini mb-4" style="opacity:.7">Stroke mein har minute 1.9 million brain cells marte hain. Turant action lo.</div>
+
+        <div class="row g-3">
+          <div class="col-6">
+            <div style="background:rgba(239,68,68,.15);border-radius:14px;padding:16px;text-align:center">
+              <div class="fast-letter">F</div>
+              <div class="fast-label mt-1">Face Drooping</div>
+              <div class="fast-desc mt-1">Chehra ek taraf jhuk raha hai? Muskurane ko kaho — uneven hai?</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div style="background:rgba(239,68,68,.15);border-radius:14px;padding:16px;text-align:center">
+              <div class="fast-letter">A</div>
+              <div class="fast-label mt-1">Arm Weakness</div>
+              <div class="fast-desc mt-1">Dono haath utha ke rakho — koi ek neeche gir raha hai?</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div style="background:rgba(239,68,68,.15);border-radius:14px;padding:16px;text-align:center">
+              <div class="fast-letter">S</div>
+              <div class="fast-label mt-1">Speech Difficulty</div>
+              <div class="fast-desc mt-1">Speech slurred hai? Simple sentence repeat nahi kar pa rahe?</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div style="background:rgba(239,68,68,.28);border-radius:14px;padding:16px;text-align:center;border:1px solid rgba(239,68,68,.5)">
+              <div class="fast-letter">T</div>
+              <div class="fast-label mt-1">Time to Call</div>
+              <div class="fast-desc mt-1"><strong style="color:#fca5a5;font-size:1.1rem">108 / 112</strong><br>Abhi, turant. Ek bhi minute mat barbaad karo.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     PREVENTION
+══════════════════════════════════════ -->
+<div id="prevention" class="mb-5">
+  <div class="sec-head">
+    <div class="sec-icon green">🛡️</div>
+    <div>
+      <h2 class="mb-0" style="font-size:1.4rem">Prevention — 80% CVD Deaths Rokne Layak Hain</h2>
+      <div class="mini" style="opacity:.6">WHO ki evidence-based recommendations</div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <div class="form-card p-4 h-100">
+        <div class="prev-step">
+          <div class="prev-num">1</div>
+          <div><div class="fw-bold mb-1">Healthy Diet Apnao</div><div class="mini" style="opacity:.75">Trans fat khatam karo. Salt &lt;5g/day. Processed food kam karo. Fruits, veggies, legumes, whole grains badhao. Omega-3 (fish/flaxseed) zyada lo.</div></div>
+        </div>
+        <div class="prev-step">
+          <div class="prev-num">2</div>
+          <div><div class="fw-bold mb-1">Regular Physical Activity</div><div class="mini" style="opacity:.75">Minimum 150 min/week moderate exercise (brisk walk, cycling, swimming) ya 75 min vigorous. Sedentary time kam karo — har ghante uthkar 5 min chalo.</div></div>
+        </div>
+        <div class="prev-step">
+          <div class="prev-num">3</div>
+          <div><div class="fw-bold mb-1">Tobacco Bilkul Chhod Do</div><div class="mini" style="opacity:.75">Smoking aur tobacco CVD ka No.1 preventable cause hai. Quit karne ke 1 saal mein heart attack risk 50% kam ho jaata hai. Secondhand smoke bhi equally dangerous.</div></div>
+        </div>
+        <div class="prev-step">
+          <div class="prev-num">4</div>
+          <div><div class="fw-bold mb-1">Blood Pressure Control Karo</div><div class="mini" style="opacity:.75">Target: &lt;120/80 mmHg. Har 6 mahine check karwao. Hypertension ko "silent killer" kehte hain — koi symptom nahi hota jab tak attack nahi aata.</div></div>
+        </div>
+        <div class="prev-step">
+          <div class="prev-num">5</div>
+          <div><div class="fw-bold mb-1">Cholesterol Manage Karo</div><div class="mini" style="opacity:.75">LDL (bad) cholesterol &lt;100 mg/dL rakho. HDL (good) &gt;40 mg/dL. Agar high hai to doctor se statin discuss karo.</div></div>
+        </div>
+        <div class="prev-step">
+          <div class="prev-num">6</div>
+          <div><div class="fw-bold mb-1">Diabetes Control</div><div class="mini" style="opacity:.75">HbA1c &lt;7% rakho. Diabetics mein CVD risk 2-4x zyada hota hai. Blood sugar spikes arteries ko directly damage karti hain.</div></div>
+        </div>
+        <div class="prev-step">
+          <div class="prev-num">7</div>
+          <div><div class="fw-bold mb-1">Stress Management</div><div class="mini" style="opacity:.75">Chronic stress cortisol badhata hai → inflammation → plaque build-up. Yoga, meditation, adequate sleep (7-9 hrs) — yeh sab clinically proven hain.</div></div>
+        </div>
+        <div class="prev-step">
+          <div class="prev-num">8</div>
+          <div><div class="fw-bold mb-1">Regular Health Checkups</div><div class="mini" style="opacity:.75">30+ saal ke baad: annual ECG, BP check, lipid profile, fasting glucose. Family history hai to 25 saal se start karo. Early detection = easy treatment.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <!-- Healthy Numbers Target -->
+      <div class="form-card p-4 mb-3">
+        <div class="fw-bold mb-3" style="font-size:.95rem">🎯 Healthy Numbers — Apna Target</div>
+        <div class="divider mb-3"></div>
+        <div class="kv"><div class="k">Blood Pressure</div><div class="v" style="color:#22c55e">&lt; 120/80 mmHg</div></div>
+        <div class="kv"><div class="k">LDL Cholesterol</div><div class="v" style="color:#22c55e">&lt; 100 mg/dL</div></div>
+        <div class="kv"><div class="k">HDL Cholesterol</div><div class="v" style="color:#22c55e">&gt; 40 mg/dL (men)</div></div>
+        <div class="kv"><div class="k">Fasting Blood Sugar</div><div class="v" style="color:#22c55e">&lt; 100 mg/dL</div></div>
+        <div class="kv"><div class="k">HbA1c</div><div class="v" style="color:#22c55e">&lt; 5.7%</div></div>
+        <div class="kv"><div class="k">BMI</div><div class="v" style="color:#22c55e">18.5 – 22.9 kg/m²</div></div>
+        <div class="kv"><div class="k">Resting Heart Rate</div><div class="v" style="color:#22c55e">60 – 100 BPM</div></div>
+        <div class="kv" style="border-bottom:0"><div class="k">Waist Circumference</div><div class="v" style="color:#22c55e">&lt;90 cm (men), &lt;80 cm (women)</div></div>
+      </div>
+
+      <!-- Use HeartCare AI -->
+      <div class="hero-card p-4" style="border-color:rgba(124,58,237,.35)">
+        <div style="font-size:1.5rem mb-2">🤖</div>
+        <div class="fw-bold mt-2 mb-2">HeartCare AI se Check Karo</div>
+        <div class="mini mb-3" style="opacity:.75">Apne numbers enter karo aur AI instantly batayega — risk low hai, medium hai, ya high. PDF report bhi milega doctor ke liye.</div>
+        <a href="/" class="btn btn-glow btn-sm w-100">Check My Heart Risk →</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     FAQ ACCORDION
+══════════════════════════════════════ -->
+<div id="faq" class="mb-5">
+  <div class="sec-head">
+    <div class="sec-icon amber">❓</div>
+    <div>
+      <h2 class="mb-0" style="font-size:1.4rem">Frequently Asked Questions</h2>
+      <div class="mini" style="opacity:.6">Common doubts — clear answers</div>
+    </div>
+  </div>
+
+  <div class="accordion d-flex flex-column gap-2" id="faqAccordion">
+
+    {% set faqs = [
+      ("Kya young people ko bhi heart attack ho sakta hai?",
+       "Haan — India mein 25-40% heart attacks 40 saal se kam umar ke logon mein hote hain (ICMR). Stress, smoking, diabetes, obesity, aur genetic factors young adults mein bhi same risk create karte hain. 'Main young hun' wali soch dangerous hai."),
+
+      ("Heart attack aur cardiac arrest mein kya fark hai?",
+       "Heart attack: coronary artery block ho jaati hai — heart ka ek hissa oxygen se vanchit ho jaata hai. Jab tak treatment na ho, damage hota rehta hai. Cardiac arrest: heart achanak pump karna band kar deta hai — koi blood flow nahi. Cardiac arrest bina CPR ke minutes mein fatal hai. Heart attack kabhi kabhi cardiac arrest trigger kar sakta hai."),
+
+      ("Kya stress akela CVD cause kar sakta hai?",
+       "Directly nahi, but chronic stress CVD ka ek significant INDEPENDENT risk factor hai. Stress → cortisol → inflammation, high BP, bad cholesterol, clotting tendency → plaque build-up. Plus stressed log smoking, drinking, binge eating karte hain — indirect harm bhi hota hai."),
+
+      ("Vegetarian ya vegan hone se heart disease nahi hoti?",
+       "Yeh partially sach hai. Plant-based diet cholesterol aur BP mein help karti hai. Lekin processed vegetarian food (white bread, fried snacks, sweets) bhi harmful hai. Refined carbs, transfats, excess sugar — yeh sab CVD risk badhate hain. Quality of diet matter karta hai, sirf label nahi."),
+
+      ("Kya heart disease family mein hoti hai to mujhe zaroor hogi?",
+       "Family history ek major risk factor hai par destiny nahi. Agar first-degree relative (parent ya sibling) ko 55 (men) ya 65 (women) se pehle CVD thi, aapka risk high hai. Lekin aggressive lifestyle modification aur early screening se risk dramatically kam ho sakta hai."),
+
+      ("ECG normal aane ka matlab kya heart healthy hai?",
+       "ECG ek snapshot hai — resting ECG sirf current electrical activity dikhata hai. Normal ECG hone par bhi significant coronary artery disease ho sakti hai. Comprehensive evaluation mein echo, stress test, lipid profile, aur clinical history zaroori hai."),
+
+      ("Kya aspirin roz lena heart attack se bachata hai?",
+       "Pehle primary prevention ke liye recommend hoti thi. Ab current guidelines kehti hain: agar aapko pehle CVD event nahi hua to routine aspirin recommend NAHI hai (bleeding risk outweighs benefit). Agar pehle heart attack ya stroke hua hai to doctor ki advice se zaroor lo."),
+
+      ("Kitne saal mein ek baar heart checkup karwana chahiye?",
+       "30+ saal ke log: annually BP check, fasting lipid profile, blood sugar. ECG annually if risk factors hain. Family history hai ya symptoms hain to pehle specialist se milna chahiye. 40+ ke baad frequency aur tests badhne chahiye — stress echo ya CT calcium score consider karo.")
+    ] %}
+
+    {% for q, a in faqs %}
+    <div class="accordion-item" style="background:transparent;border:0">
+      <h2 class="accordion-header">
+        <button class="faq-btn accordion-button collapsed" type="button"
+                data-bs-toggle="collapse" data-bs-target="#faq{{loop.index}}">
+          {{ q }}
+        </button>
+      </h2>
+      <div id="faq{{loop.index}}" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+        <div class="accordion-body faq-body">{{ a }}</div>
+      </div>
+    </div>
+    {% endfor %}
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     FUTURE SCOPE
+══════════════════════════════════════ -->
+<div class="hero-card p-4 p-md-5 mb-4">
+  <div class="sec-head mb-3">
+    <div class="sec-icon violet">🚀</div>
+    <div>
+      <h3 class="mb-0">Future Scope</h3>
+      <div class="sub">Planned enhancements and research directions for HeartCare AI</div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+
+    <div class="col-md-4">
+      <div class="cvd-type h-100">
+        <div class="cvd-icon">⌚</div>
+        <div class="cvd-name">Wearable Integration</div>
+        <div class="cvd-desc">Real-time sync with Apple Watch, Fitbit, and Garmin smartwatches for continuous heart rate and SpO₂ monitoring. Automatic risk alerts on device.</div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="cvd-type h-100">
+        <div class="cvd-icon">📡</div>
+        <div class="cvd-name">Real-time ECG Streaming</div>
+        <div class="cvd-desc">Stream live ECG data from portable ECG patches (AliveCor, Holter monitors) directly into the AI for instant beat-by-beat classification.</div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="cvd-type h-100">
+        <div class="cvd-icon">🧠</div>
+        <div class="cvd-name">Deep Learning ECG</div>
+        <div class="cvd-desc">Replace the current feature-based ECG model with a 1D-CNN or transformer architecture trained on PhysioNet's 12-lead ECG dataset for clinical-grade accuracy.</div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="cvd-type h-100">
+        <div class="cvd-icon">🏥</div>
+        <div class="cvd-name">Hospital Integration (HL7 / FHIR)</div>
+        <div class="cvd-desc">Connect HeartCare AI to hospital EMR systems via HL7 FHIR APIs, enabling automated risk flags on patient records and triage prioritisation.</div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="cvd-type h-100">
+        <div class="cvd-icon">📱</div>
+        <div class="cvd-name">Mobile App (Android / iOS)</div>
+        <div class="cvd-desc">Native mobile application with offline prediction capability, push notifications for follow-up reminders, and camera-based ECG scan.</div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="cvd-type h-100">
+        <div class="cvd-icon">🌐</div>
+        <div class="cvd-name">Multi-language Support</div>
+        <div class="cvd-desc">Localisation for Hindi, Tamil, Telugu, Bengali, and other Indian languages to improve accessibility for rural populations — closing India's 1.7B health literacy gap.</div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="cvd-type h-100">
+        <div class="cvd-icon">🔒</div>
+        <div class="cvd-name">Federated Learning</div>
+        <div class="cvd-desc">Train the model across hospitals without sharing raw patient data — preserving privacy while improving model accuracy from a distributed multi-site dataset.</div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="cvd-type h-100">
+        <div class="cvd-icon">🤝</div>
+        <div class="cvd-name">Doctor Teleconsultation</div>
+        <div class="cvd-desc">In-app video consultation with cardiologists. The AI risk report is automatically shared with the doctor before the call begins, saving consultation time.</div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="cvd-type h-100">
+        <div class="cvd-icon">📊</div>
+        <div class="cvd-name">Population Health Analytics</div>
+        <div class="cvd-desc">Anonymised aggregate analytics for public health departments — track CVD risk trends by region, age group, and lifestyle factor at the district level.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     CTA STRIP
+══════════════════════════════════════ -->
+<div class="hero-card p-4 p-md-5 mb-4 text-center" style="border-color:rgba(124,58,237,.35)">
+  <div style="font-size:3rem mb-2">💜</div>
+  <h2 class="mt-3 mb-2" style="font-size:1.5rem">Ab aage badhne ka waqt hai</h2>
+  <p class="sub mb-4">Apna risk check karo, ECG analyse karo, aur apne area mein cardiologist dhundho — sab ek platform pe.</p>
+  <div class="d-flex flex-wrap justify-content-center gap-3">
+    <a href="/" class="btn btn-glow">🫀 Check My Heart Risk</a>
+    <a href="/ecg_analysis" class="btn btn-ghost">📊 ECG Analysis</a>
+    <a href="/find_doctor" class="btn btn-ghost" style="border-color:rgba(239,68,68,.4);color:#fca5a5">🏥 Find Cardiologist</a>
+  </div>
+  <div class="mini mt-4" style="opacity:.45">Sources: WHO Global Health Observatory 2023 • Cleveland Clinic Heart Health • ICMR CVD Report 2022 • AHA Guidelines</div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Smooth scroll for anchor links
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) { e.preventDefault(); target.scrollIntoView({behavior:'smooth', block:'start'}) }
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+{% set title = 'HeartCare AI • Wearable Integration' %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-8">
+    <div class="hero-card p-4 p-md-5 slide-up">
+      <div class="kicker mb-2">Future Ready</div>
+      <div class="h2 mb-3">Wearable Device Integration</div>
+      <p class="sub mb-4">
+        HeartCare AI is designed to integrate with wearable health devices — smartwatches,
+        fitness bands, and medical-grade monitors. Real-time physiological data from wearables
+        enables continuous risk assessment beyond periodic check-ups.
+      </p>
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        <span class="pill">&#8987; Real-time HR</span>
+        <span class="pill">&#128200; Activity Tracking</span>
+        <span class="pill">&#128148; SpO2 Monitor</span>
+        <span class="pill">&#128203; ECG on Wrist</span>
+      </div>
+      <div class="alert rounded-4 mb-0"
+           style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);">
+        <strong>&#128161; Demo Mode</strong>
+        <div class="mini mt-1">
+          The data shown below is simulated to demonstrate the integration concept.
+          In production, this data would be streamed from a Bluetooth/API-connected wearable device.
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="form-card p-4 h-100">
+      <div class="section-title mb-3">Live Metrics (Demo)</div>
+      <div class="d-flex flex-column gap-3">
+        <div class="kv">
+          <div class="k">Avg Heart Rate</div>
+          <div class="v fw-bold" style="font-size:1.3rem;color:rgba(239,68,68,.9)">{{ avg_hr }} bpm</div>
+        </div>
+        <div class="kv">
+          <div class="k">Max HR (24h)</div>
+          <div class="v">{{ max_hr }} bpm</div>
+        </div>
+        <div class="kv">
+          <div class="k">Resting HR</div>
+          <div class="v">{{ min_hr }} bpm</div>
+        </div>
+        <div class="kv">
+          <div class="k">HR Zone</div>
+          <div class="v"><span class="pill">Normal Sinus</span></div>
+        </div>
+        <div class="kv">
+          <div class="k">SpO2 (est.)</div>
+          <div class="v">98%</div>
+        </div>
+        <div class="kv">
+          <div class="k">Device Status</div>
+          <div class="v text-success">&#9679; Simulated</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Heart Rate Chart -->
+<div class="form-card p-4 mb-4 fade-in">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="section-title">24-Hour Heart Rate Trend</div>
+    <span class="pill">Simulated Wearable Data</span>
+  </div>
+  <canvas id="hrChart" height="100"></canvas>
+</div>
+
+<!-- Steps Chart -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="form-card p-4 fade-in">
+      <div class="section-title mb-3">Weekly Step Count</div>
+      <canvas id="stepsChart" height="180"></canvas>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="form-card p-4 fade-in">
+      <div class="section-title mb-3">Integration Architecture</div>
+      <div class="d-flex flex-column gap-3 mt-2">
+        {% set steps = [
+          ('1','Wearable Device','Smartwatch / fitness band collects HR, steps, SpO2 data.','rgba(56,189,248,.15)','rgba(56,189,248,.4)'),
+          ('2','Bluetooth/API','Data transmitted via BLE or REST API to the mobile app.','rgba(167,139,250,.15)','rgba(167,139,250,.4)'),
+          ('3','HeartCare AI','AI engine processes real-time data and computes risk scores.','rgba(34,197,94,.15)','rgba(34,197,94,.4)'),
+          ('4','Alert System','If HR anomaly or high risk detected, instant notification is sent.','rgba(245,158,11,.15)','rgba(245,158,11,.4)'),
+        ] %}
+        {% for num, title, desc, bg, bdr in steps %}
+        <div class="d-flex gap-3 align-items-start p-3 rounded-3" style="background:{{ bg }};border:1px solid {{ bdr }}">
+          <div class="fw-bold rounded-circle text-center" style="min-width:28px;height:28px;line-height:28px;background:rgba(255,255,255,.1);font-size:.85rem">{{ num }}</div>
+          <div>
+            <div class="fw-bold" style="font-size:.9rem">{{ title }}</div>
+            <div class="mini">{{ desc }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Supported Devices -->
+<div class="form-card p-4">
+  <div class="section-title mb-3">Planned Device Support</div>
+  <div class="row g-3">
+    {% for device, icon, status in [
+      ('Apple Watch', '&#8984;', 'Planned'),
+      ('Samsung Galaxy Watch', '&#127467;', 'Planned'),
+      ('Fitbit', '&#128200;', 'Planned'),
+      ('Garmin', '&#128681;', 'Planned'),
+      ('Mi Band', '&#9733;', 'Planned'),
+      ('Medical ECG Patch', '&#128203;', 'Research'),
+    ] %}
+    <div class="col-md-4 col-sm-6">
+      <div class="form-card p-3 text-center">
+        <div style="font-size:1.8rem">{{ icon }}</div>
+        <div class="fw-bold mt-1" style="font-size:.9rem">{{ device }}</div>
+        <span class="pill mt-1" style="font-size:.75rem">{{ status }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="mini mt-3 text-center">
+    Viva Note: "The system architecture is designed to be modular and extensible.
+    Wearable integration would use standardized health APIs (Apple HealthKit, Google Fit, Fitbit Web API)
+    enabling real-time risk monitoring without requiring a clinical visit."
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const chartOpts = {
+  responsive:true,
+  plugins:{ legend:{ labels:{ color:'rgba(220,225,255,.8)', font:{size:11} } } },
+  scales:{
+    x:{ ticks:{ color:'rgba(180,185,220,.7)', maxTicksLimit:12 }, grid:{ color:'rgba(255,255,255,.06)' } },
+    y:{ ticks:{ color:'rgba(180,185,220,.7)' }, grid:{ color:'rgba(255,255,255,.06)' } }
+  }
+};
+
+new Chart(document.getElementById('hrChart'), {
+  type:'line',
+  data:{
+    labels: {{ hr_labels|safe }},
+    datasets:[{
+      label:'Heart Rate (bpm)',
+      data: {{ hr_data_sparse|safe }},
+      borderColor:'rgba(239,68,68,.85)',
+      backgroundColor:'rgba(239,68,68,.08)',
+      fill:true, tension:.4, pointRadius:2
+    }]
+  },
+  options:{...chartOpts, scales:{...chartOpts.scales, y:{...chartOpts.scales.y, min:40, max:140}}}
+});
+
+new Chart(document.getElementById('stepsChart'), {
+  type:'bar',
+  data:{
+    labels: {{ step_labels|safe }},
+    datasets:[{
+      label:'Steps',
+      data: {{ steps_data|safe }},
+      backgroundColor:'rgba(167,139,250,.5)',
+      borderColor:'rgba(167,139,250,.9)',
+      borderWidth:1, borderRadius:6
+    }]
+  },
+  options:{...chartOpts}
+});
+</script>
+{% endblock %}

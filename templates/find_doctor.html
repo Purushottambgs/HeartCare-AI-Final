@@ -1,0 +1,601 @@
+{% extends 'base.html' %}
+{% set title = 'HeartCare AI • Find Cardiologist' %}
+
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+<style>
+/* ── Map ── */
+#map{ height:100%; width:100%; border-radius:20px }
+.map-wrap{
+  height:500px; border-radius:20px; overflow:hidden;
+  border:1px solid var(--border); box-shadow:var(--shadow);
+}
+
+/* ── Doctor cards ── */
+.doc-card{
+  border:1px solid var(--border);
+  background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.04));
+  border-radius:14px; padding:12px 14px;
+  cursor:pointer;
+  transition:border-color .18s,transform .18s,background .18s;
+}
+.doc-card:hover{ border-color:rgba(239,68,68,.45); transform:translateY(-2px); background:rgba(239,68,68,.06) }
+.doc-card.active{ border-color:rgba(239,68,68,.7)!important; background:rgba(239,68,68,.10)!important }
+
+/* ── Type badges ── */
+.badge-hospital{ background:rgba(239,68,68,.18);color:#fca5a5;border:1px solid rgba(239,68,68,.3);border-radius:999px;padding:.22rem .6rem;font-size:.74rem;font-weight:700 }
+.badge-clinic  { background:rgba(6,182,212,.18);color:#67e8f9;border:1px solid rgba(6,182,212,.3);border-radius:999px;padding:.22rem .6rem;font-size:.74rem;font-weight:700 }
+.badge-doctor  { background:rgba(124,58,237,.18);color:#c4b5fd;border:1px solid rgba(124,58,237,.3);border-radius:999px;padding:.22rem .6rem;font-size:.74rem;font-weight:700 }
+
+/* ── Scroll list ── */
+.result-scroll{ max-height:500px; overflow-y:auto; padding-right:2px }
+.result-scroll::-webkit-scrollbar{ width:3px }
+.result-scroll::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.15); border-radius:3px }
+
+/* ── Stats ── */
+.stat-mini{ border:1px solid var(--border); background:rgba(255,255,255,.05); border-radius:14px; padding:10px 12px; text-align:center }
+
+/* ── Spinner ── */
+.search-spinner{ width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.25);border-top-color:white;animation:spin .7s linear infinite;display:none }
+
+/* ── City chips ── */
+.city-chip{ display:inline-block; padding:.3rem .75rem; border:1px solid var(--border); border-radius:999px; font-size:.8rem; cursor:pointer; transition:all .15s }
+.city-chip:hover{ border-color:rgba(239,68,68,.55); background:rgba(239,68,68,.1); color:#fca5a5 }
+
+/* ── Leaflet popup custom ── */
+.leaflet-popup-content-wrapper{ background:#0e1628!important; border:1px solid rgba(255,255,255,.18)!important; border-radius:12px!important; color:#eaf0ff!important; box-shadow:0 10px 40px rgba(0,0,0,.6)!important }
+.leaflet-popup-tip{ background:#0e1628!important }
+.leaflet-popup-content{ color:#eaf0ff!important; margin:10px 14px!important; font-family:Inter,sans-serif; font-size:.85rem }
+body[data-theme="light"] .leaflet-popup-content-wrapper{ background:#fff!important; color:#0b1220!important }
+body[data-theme="light"] .leaflet-popup-tip{ background:#fff!important }
+body[data-theme="light"] .leaflet-popup-content{ color:#0b1220!important }
+
+/* ── Emergency banner ── */
+.emergency-bar{ background:linear-gradient(90deg,rgba(239,68,68,.18),rgba(239,68,68,.08)); border:1px solid rgba(239,68,68,.35); border-radius:14px; padding:10px 16px }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Emergency Banner -->
+<div class="emergency-bar mb-4 d-flex align-items-center gap-3 flex-wrap slide-up">
+  <span style="font-size:1.6rem">🚨</span>
+  <div>
+    <span class="fw-bold" style="color:#fca5a5">Chest pain ya breathlessness?</span>
+    <span class="mini ms-2">Turant call karo:</span>
+    <strong class="ms-2" style="color:#fca5a5;font-size:1.1rem">108</strong>
+    <span class="mini mx-1">ya</span>
+    <strong style="color:#fca5a5;font-size:1.1rem">112</strong>
+    <span class="mini ms-1">(India Emergency)</span>
+  </div>
+</div>
+
+<!-- Header -->
+<div class="mb-4 slide-up">
+  <div class="kicker mb-1">location-based search</div>
+  <h1 class="mb-1" style="background:linear-gradient(135deg,var(--text) 40%,rgba(252,165,165,.85));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+    Find Heart Specialist Near You
+  </h1>
+  <p class="sub mb-0">100+ major Indian cardiac hospitals + live OpenStreetMap data. No signup needed.</p>
+</div>
+
+<!-- Search Bar -->
+<div class="form-card p-4 mb-3 fade-in">
+  <div class="row g-3 align-items-end">
+
+    <div class="col-md-5 col-lg-6">
+      <label class="form-label mb-1" style="font-size:.82rem">City / Area / Address</label>
+      <input type="text" id="locationInput" class="form-control"
+             placeholder="Mumbai, AIIMS Delhi, Kokilaben, Hyderabad…"
+             autocomplete="off"
+             onkeydown="if(event.key==='Enter') doSearch()"/>
+    </div>
+
+    <div class="col-6 col-md-2">
+      <label class="form-label mb-1" style="font-size:.82rem">Radius</label>
+      <select id="radiusSelect" class="form-select">
+        <option value="3000">3 km</option>
+        <option value="5000">5 km</option>
+        <option value="10000" selected>10 km</option>
+        <option value="20000">20 km</option>
+        <option value="50000">50 km</option>
+      </select>
+    </div>
+
+    <div class="col-6 col-md-2">
+      <label class="form-label mb-1" style="font-size:.82rem">Filter</label>
+      <select id="typeFilter" class="form-select" onchange="applyFilter()">
+        <option value="all">All</option>
+        <option value="hospital">Hospitals</option>
+        <option value="clinic">Clinics</option>
+      </select>
+    </div>
+
+    <div class="col-md-3 col-lg-2">
+      <div class="d-flex gap-2">
+        <button class="btn btn-glow flex-grow-1 d-flex align-items-center justify-content-center gap-2" id="searchBtn" onclick="doSearch()">
+          <span class="search-spinner" id="searchSpinner"></span>
+          <span id="searchBtnTxt">🔍 Search</span>
+        </button>
+        <button class="btn btn-ghost px-2" onclick="useGPS()" title="Use my GPS location">📍</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Quick city chips -->
+  <div class="mt-3 d-flex flex-wrap gap-2 align-items-center">
+    <span class="mini" style="opacity:.55">Quick:</span>
+    {% for city in ['Mumbai','Delhi','Hyderabad','Bangalore','Chennai','Kolkata','Pune','Ahmedabad','Jaipur','Lucknow','Chandigarh','Kochi'] %}
+    <span class="city-chip" onclick="quickSearch('{{city}}')">{{city}}</span>
+    {% endfor %}
+  </div>
+
+  <div class="mt-2 mini" id="statusMsg" style="color:rgba(252,165,165,.85);min-height:18px"></div>
+</div>
+
+<!-- Stats Row -->
+<div class="row g-2 mb-3" id="statsRow" style="display:none!important">
+  <div class="col-6 col-md-3"><div class="stat-mini"><div style="font-size:1.3rem">🏥</div><div class="mini">Found</div><b id="sTot" style="color:#fca5a5">0</b></div></div>
+  <div class="col-6 col-md-3"><div class="stat-mini"><div style="font-size:1.3rem">🩺</div><div class="mini">Hospitals</div><b id="sHosp" style="color:#67e8f9">0</b></div></div>
+  <div class="col-6 col-md-3"><div class="stat-mini"><div style="font-size:1.3rem">🏨</div><div class="mini">Clinics</div><b id="sClin" style="color:#c4b5fd">0</b></div></div>
+  <div class="col-6 col-md-3"><div class="stat-mini"><div style="font-size:1.3rem">📍</div><div class="mini">Radius</div><b id="sRad" style="color:#fbbf24">—</b></div></div>
+</div>
+
+<!-- Map + List -->
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="map-wrap"><div id="map"></div></div>
+    <div class="mini mt-2 text-center" style="opacity:.4">Map © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" style="color:inherit">OpenStreetMap</a></div>
+  </div>
+  <div class="col-lg-5">
+    <div class="form-card p-3" style="min-height:300px">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <div class="section-title" style="font-size:.92rem">Nearby Results</div>
+        <span class="pill" id="resultCount" style="font-size:.75rem">—</span>
+      </div>
+      <div class="divider mb-3"></div>
+      <div class="result-scroll" id="resultsList">
+        <div class="text-center py-5" id="emptyState">
+          <div style="font-size:3rem;filter:grayscale(.3)">🏥</div>
+          <div class="sub mt-2 mb-1">Apni city search karo</div>
+          <div class="mini" style="opacity:.55">Upar city ka naam enter karke Search button dabaao.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Info cards -->
+<div class="row g-3 mt-3">
+  <div class="col-md-4">
+    <div class="hero-card p-3">
+      <div style="font-size:1.8rem">🩺</div>
+      <div class="fw-bold mt-2 mb-1">Cardiologist</div>
+      <div class="mini" style="opacity:.75">Heart specialist doctor — diagnose aur treat karta hai coronary artery disease, heart failure, arrhythmia aur other cardiovascular conditions.</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="hero-card p-3">
+      <div style="font-size:1.8rem">🏥</div>
+      <div class="fw-bold mt-2 mb-1">Cardiac Center</div>
+      <div class="mini" style="opacity:.75">Specialized unit with cath labs, cardiac ICU, echo, stress tests, and open-heart surgery. 24x7 emergency care available.</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="hero-card p-3" style="border-color:rgba(239,68,68,.3)">
+      <div style="font-size:1.8rem">🚨</div>
+      <div class="fw-bold mt-2 mb-1" style="color:#fca5a5">Emergency Numbers</div>
+      <div class="mini">
+        <div class="d-flex justify-content-between mb-1"><span>🇮🇳 Ambulance</span><strong style="color:#fca5a5">108</strong></div>
+        <div class="d-flex justify-content-between mb-1"><span>🇮🇳 National</span><strong style="color:#fca5a5">112</strong></div>
+        <div class="d-flex justify-content-between"><span>🫀 Cardiac Helpline</span><strong style="color:#fca5a5">1800-180-1104</strong></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+// ════════════════════════════════════════
+//  STATIC HOSPITAL DATABASE  (100+ Indian cardiac hospitals)
+// ════════════════════════════════════════
+const HOSPITALS_DB = [
+  // ── MUMBAI ──
+  {n:"Kokilaben Dhirubhai Ambani Hospital",city:"Mumbai",lat:19.1178,lon:72.8311,type:"hospital",ph:"+91-22-30999999",addr:"Rao Saheb Achutrao Patwardhan Marg, Mumbai"},
+  {n:"Asian Heart Institute",city:"Mumbai",lat:19.0596,lon:72.8295,type:"hospital",ph:"+91-22-66988888",addr:"G/N Block, Bandra Kurla Complex, Mumbai"},
+  {n:"Lilavati Hospital",city:"Mumbai",lat:19.0507,lon:72.8288,type:"hospital",ph:"+91-22-26751000",addr:"Bandra West, Mumbai"},
+  {n:"Hinduja Hospital",city:"Mumbai",lat:19.0459,lon:72.8369,type:"hospital",ph:"+91-22-24455354",addr:"Mahim West, Mumbai"},
+  {n:"Nanavati Super Speciality Hospital",city:"Mumbai",lat:19.0808,lon:72.8360,type:"hospital",ph:"+91-22-26267500",addr:"Vile Parle West, Mumbai"},
+  {n:"Fortis Hospital Mulund",city:"Mumbai",lat:19.1680,lon:72.9580,type:"hospital",ph:"+91-22-67984444",addr:"Mulund West, Mumbai"},
+  {n:"KEM Hospital Mumbai",city:"Mumbai",lat:19.0018,lon:72.8403,type:"hospital",ph:"+91-22-24107000",addr:"Acharya Donde Marg, Parel, Mumbai"},
+  {n:"Bombay Hospital",city:"Mumbai",lat:18.9380,lon:72.8279,type:"hospital",ph:"+91-22-22067676",addr:"New Marine Lines, Mumbai"},
+  {n:"Breach Candy Hospital",city:"Mumbai",lat:18.9707,lon:72.8071,type:"hospital",ph:"+91-22-23667888",addr:"Bhulabhai Desai Road, Mumbai"},
+  {n:"Wockhardt Hospital Mumbai Central",city:"Mumbai",lat:18.9717,lon:72.8189,type:"hospital",ph:"+91-22-61784444",addr:"1877, Dr Anandrao Nair Marg, Mumbai Central"},
+  // ── DELHI / NCR ──
+  {n:"AIIMS New Delhi",city:"Delhi",lat:28.5672,lon:77.2100,type:"hospital",ph:"+91-11-26588500",addr:"Ansari Nagar East, New Delhi"},
+  {n:"Apollo Hospital Sarita Vihar",city:"Delhi",lat:28.5556,lon:77.2746,type:"hospital",ph:"+91-11-26925858",addr:"Sarita Vihar, Mathura Road, New Delhi"},
+  {n:"Fortis Escorts Heart Institute",city:"Delhi",lat:28.5592,lon:77.2509,type:"hospital",ph:"+91-11-47135000",addr:"Okhla Road, New Delhi"},
+  {n:"Max Super Speciality Saket",city:"Delhi",lat:28.5244,lon:77.2078,type:"hospital",ph:"+91-11-26515050",addr:"Press Enclave Road, Saket, New Delhi"},
+  {n:"BLK-Max Super Speciality Hospital",city:"Delhi",lat:28.6411,lon:77.1786,type:"hospital",ph:"+91-11-30403040",addr:"Pusa Road, Rajinder Nagar, New Delhi"},
+  {n:"Sir Ganga Ram Hospital",city:"Delhi",lat:28.6404,lon:77.1892,type:"hospital",ph:"+91-11-25750000",addr:"Rajinder Nagar, New Delhi"},
+  {n:"Safdarjung Hospital",city:"Delhi",lat:28.5685,lon:77.2027,type:"hospital",ph:"+91-11-26707444",addr:"Ansari Nagar West, New Delhi"},
+  {n:"Indraprastha Apollo Hospital",city:"Delhi",lat:28.5469,lon:77.2846,type:"hospital",ph:"+91-11-71791090",addr:"Sarita Vihar, New Delhi"},
+  {n:"Medanta - The Medicity",city:"Gurgaon",lat:28.4475,lon:77.0534,type:"hospital",ph:"+91-124-4141414",addr:"CH Baktawar Singh Rd, Sector 38, Gurugram"},
+  {n:"Artemis Hospital",city:"Gurgaon",lat:28.4595,lon:77.0781,type:"hospital",ph:"+91-124-4511111",addr:"Sector 51, Gurugram"},
+  {n:"Fortis Memorial Research Institute",city:"Gurgaon",lat:28.4728,lon:77.0987,type:"hospital",ph:"+91-124-4962200",addr:"Sector 44, Opposite HUDA City Centre, Gurugram"},
+  {n:"Metro Hospital Noida",city:"Noida",lat:28.5834,lon:77.3214,type:"hospital",ph:"+91-120-4177777",addr:"X-1, Sector 12, Noida"},
+  // ── HYDERABAD ──
+  {n:"CARE Hospitals Banjara Hills",city:"Hyderabad",lat:17.4065,lon:78.4772,type:"hospital",ph:"+91-40-30418888",addr:"Road No. 1, Banjara Hills, Hyderabad"},
+  {n:"Apollo Hospitals Jubilee Hills",city:"Hyderabad",lat:17.4239,lon:78.4072,type:"hospital",ph:"+91-40-23607777",addr:"Jubilee Hills, Hyderabad"},
+  {n:"Yashoda Hospitals Somajiguda",city:"Hyderabad",lat:17.4318,lon:78.4607,type:"hospital",ph:"+91-40-45674567",addr:"Raj Bhavan Road, Somajiguda, Hyderabad"},
+  {n:"KIMS Hospitals Secunderabad",city:"Hyderabad",lat:17.4472,lon:78.3766,type:"hospital",ph:"+91-40-44885000",addr:"Minister Road, Secunderabad"},
+  {n:"Sunshine Hospitals Begumpet",city:"Hyderabad",lat:17.4430,lon:78.3724,type:"hospital",ph:"+91-40-44555555",addr:"PG Road, Begumpet, Hyderabad"},
+  {n:"Nizam's Institute of Medical Sciences",city:"Hyderabad",lat:17.4078,lon:78.4660,type:"hospital",ph:"+91-40-23489000",addr:"Punjagutta, Hyderabad"},
+  {n:"Star Hospitals Banjara Hills",city:"Hyderabad",lat:17.4211,lon:78.4521,type:"hospital",ph:"+91-40-44777777",addr:"Road No. 10, Banjara Hills, Hyderabad"},
+  // ── BANGALORE ──
+  {n:"Narayana Health City",city:"Bangalore",lat:12.9068,lon:77.5949,type:"hospital",ph:"+91-80-71222222",addr:"258/A Bommasandra Industrial Area, Bangalore"},
+  {n:"Fortis Hospital Bannerghatta Road",city:"Bangalore",lat:12.8770,lon:77.5987,type:"hospital",ph:"+91-80-66214444",addr:"154/9 Bannerghatta Road, Bangalore"},
+  {n:"Manipal Hospital Old Airport Road",city:"Bangalore",lat:12.9621,lon:77.6440,type:"hospital",ph:"+91-80-25023456",addr:"98 HAL Airport Road, Bangalore"},
+  {n:"Apollo Hospital Bannerghatta Rd",city:"Bangalore",lat:12.8979,lon:77.5981,type:"hospital",ph:"+91-80-26304050",addr:"154/11 Bannerghatta Road, Bangalore"},
+  {n:"St. John's Medical College Hospital",city:"Bangalore",lat:12.9290,lon:77.6219,type:"hospital",ph:"+91-80-22065000",addr:"Sarjapur Road, Koramangala, Bangalore"},
+  {n:"Columbia Asia Referral Hospital Hebbal",city:"Bangalore",lat:13.0101,lon:77.5547,type:"hospital",ph:"+91-80-39898969",addr:"Kirloskar Business Park, Hebbal, Bangalore"},
+  {n:"Vikram Hospital",city:"Bangalore",lat:12.9742,lon:77.5840,type:"hospital",ph:"+91-80-40206000",addr:"71/1 Millers Road, Bangalore"},
+  // ── CHENNAI ──
+  {n:"Apollo Hospitals Greams Road",city:"Chennai",lat:13.0604,lon:80.2551,type:"hospital",ph:"+91-44-28290200",addr:"21 Greams Lane, Off Greams Road, Chennai"},
+  {n:"Fortis Malar Hospital Adyar",city:"Chennai",lat:13.0196,lon:80.2565,type:"hospital",ph:"+91-44-42896999",addr:"52 First Main Road, Gandhi Nagar, Adyar, Chennai"},
+  {n:"Sri Ramachandra Medical Centre",city:"Chennai",lat:13.0494,lon:80.1624,type:"hospital",ph:"+91-44-45928888",addr:"No.1, Ramachandra Nagar, Porur, Chennai"},
+  {n:"Kauvery Hospital Alwarpet",city:"Chennai",lat:13.0340,lon:80.2571,type:"hospital",ph:"+91-44-40000000",addr:"199, Luz Church Road, Mylapore, Chennai"},
+  {n:"MIOT International",city:"Chennai",lat:13.0260,lon:80.1680,type:"hospital",ph:"+91-44-22490000",addr:"4/112, Mount Poonamallee Road, Manapakkam, Chennai"},
+  {n:"Madras Medical College",city:"Chennai",lat:13.0784,lon:80.2770,type:"hospital",ph:"+91-44-25300000",addr:"Park Town, Chennai"},
+  // ── KOLKATA ──
+  {n:"AMRI Hospitals Salt Lake",city:"Kolkata",lat:22.5087,lon:88.3671,type:"hospital",ph:"+91-33-40008000",addr:"JC-16 & 17, Sector 3, Salt Lake, Kolkata"},
+  {n:"Apollo Gleneagles Hospital",city:"Kolkata",lat:22.5359,lon:88.3680,type:"hospital",ph:"+91-33-23208600",addr:"58 Canal Circular Road, Kolkata"},
+  {n:"Fortis Hospital Anandapur",city:"Kolkata",lat:22.5099,lon:88.3957,type:"hospital",ph:"+91-33-66283333",addr:"730 Eastern Metropolitan Bypass, Anandapur, Kolkata"},
+  {n:"SSKM / PG Hospital",city:"Kolkata",lat:22.5394,lon:88.3363,type:"hospital",ph:"+91-33-22041007",addr:"244 AJC Bose Road, Kolkata"},
+  {n:"Peerless Hospital",city:"Kolkata",lat:22.4992,lon:88.3752,type:"hospital",ph:"+91-33-46001234",addr:"360 Pancha Sayar, Garia, Kolkata"},
+  // ── PUNE ──
+  {n:"Ruby Hall Clinic",city:"Pune",lat:18.5363,lon:73.8838,type:"hospital",ph:"+91-20-26163391",addr:"40 Sassoon Road, Sangamvadi, Pune"},
+  {n:"Sahyadri Super Speciality Hospital",city:"Pune",lat:18.5293,lon:73.8479,type:"hospital",ph:"+91-20-67213200",addr:"30C Karve Road, Erandwane, Pune"},
+  {n:"Deenanath Mangeshkar Hospital",city:"Pune",lat:18.5163,lon:73.8413,type:"hospital",ph:"+91-20-49152222",addr:"Erandwane, Pune"},
+  {n:"Jehangir Hospital",city:"Pune",lat:18.5363,lon:73.8770,type:"hospital",ph:"+91-20-66814444",addr:"32 Sassoon Road, Sangamvadi, Pune"},
+  {n:"Poona Hospital & Research Centre",city:"Pune",lat:18.5204,lon:73.8534,type:"hospital",ph:"+91-20-24330500",addr:"27 Sadashiv Peth, Tilak Road, Pune"},
+  // ── AHMEDABAD ──
+  {n:"Sterling Hospital",city:"Ahmedabad",lat:23.0389,lon:72.5252,type:"hospital",ph:"+91-79-40011500",addr:"Off Gurukul Road, Memnagar, Ahmedabad"},
+  {n:"Zydus Hospital",city:"Ahmedabad",lat:23.0461,lon:72.5234,type:"hospital",ph:"+91-79-66999999",addr:"Nr. Sola Bridge, SG Road, Ahmedabad"},
+  {n:"Apollo Hospital Ahmedabad",city:"Ahmedabad",lat:23.0209,lon:72.5087,type:"hospital",ph:"+91-79-66703333",addr:"Plot 1A, GIDC Estate, Bhat, Ahmedabad"},
+  {n:"UN Mehta Institute of Cardiology",city:"Ahmedabad",lat:23.0378,lon:72.5603,type:"hospital",ph:"+91-79-22685000",addr:"B-4, Civil Hospital Campus, Ahmedabad"},
+  {n:"HCG Hospitals",city:"Ahmedabad",lat:23.0255,lon:72.5871,type:"hospital",ph:"+91-79-66777000",addr:"Commerce Six Roads, Navrangpura, Ahmedabad"},
+  // ── JAIPUR ──
+  {n:"Eternal Hospital",city:"Jaipur",lat:26.8786,lon:75.8166,type:"hospital",ph:"+91-141-3505050",addr:"Jagatpura Road, Near Mahindra SEZ, Jaipur"},
+  {n:"Fortis Escorts Hospital Jaipur",city:"Jaipur",lat:26.9094,lon:75.8143,type:"hospital",ph:"+91-141-2547000",addr:"JLN Marg, Jaipur"},
+  {n:"SMS Medical College & Hospital",city:"Jaipur",lat:26.9080,lon:75.8197,type:"hospital",ph:"+91-141-2518501",addr:"JLN Marg, Jaipur"},
+  {n:"Narayana Multispeciality Jaipur",city:"Jaipur",lat:26.9124,lon:75.7873,type:"hospital",ph:"+91-141-7108108",addr:"Sector 28, Pratap Nagar, Jaipur"},
+  // ── LUCKNOW ──
+  {n:"SGPGI Lucknow",city:"Lucknow",lat:26.8548,lon:81.0058,type:"hospital",ph:"+91-522-2668700",addr:"Raebareli Road, Lucknow"},
+  {n:"Medanta Hospital Lucknow",city:"Lucknow",lat:26.8544,lon:80.9563,type:"hospital",ph:"+91-522-4505050",addr:"Sector A, Pocket 1, Amar Shaheed Path, Lucknow"},
+  {n:"King George Medical University",city:"Lucknow",lat:26.8612,lon:80.9350,type:"hospital",ph:"+91-522-2257540",addr:"Shah Mina Road, Chowk, Lucknow"},
+  // ── CHANDIGARH ──
+  {n:"Post Graduate Institute (PGI)",city:"Chandigarh",lat:30.7658,lon:76.7783,type:"hospital",ph:"+91-172-2755555",addr:"Sector 12, Chandigarh"},
+  {n:"Fortis Hospital Mohali",city:"Chandigarh",lat:30.7016,lon:76.7267,type:"hospital",ph:"+91-172-4692222",addr:"Sector 62, Phase 8, Mohali"},
+  {n:"Max Super Speciality Mohali",city:"Chandigarh",lat:30.7148,lon:76.7100,type:"hospital",ph:"+91-172-6652000",addr:"Phase 6, Mohali, Chandigarh"},
+  // ── KOCHI ──
+  {n:"Amrita Institute of Medical Sciences",city:"Kochi",lat:10.0476,lon:76.3175,type:"hospital",ph:"+91-484-2851234",addr:"AIMS Ponekkara, Edapally, Kochi"},
+  {n:"Medical Trust Hospital",city:"Kochi",lat:9.9941,lon:76.2773,type:"hospital",ph:"+91-484-2358001",addr:"MG Road, Ernakulam, Kochi"},
+  {n:"Lisie Hospital",city:"Kochi",lat:9.9950,lon:76.2828,type:"hospital",ph:"+91-484-2401011",addr:"PO Box 3053, Kochi"},
+  {n:"KIMS Hospital Trivandrum",city:"Thiruvananthapuram",lat:8.4879,lon:76.9520,type:"hospital",ph:"+91-471-2447575",addr:"Anayara, Thiruvananthapuram"},
+  {n:"SCTIMST",city:"Thiruvananthapuram",lat:8.5356,lon:76.9945,type:"hospital",ph:"+91-471-2524400",addr:"Poojappura, Thiruvananthapuram"},
+  // ── INDORE ──
+  {n:"Bombay Hospital Indore",city:"Indore",lat:22.7196,lon:75.8577,type:"hospital",ph:"+91-731-4077000",addr:"Ring Road, Indore"},
+  {n:"Choithram Hospital Indore",city:"Indore",lat:22.7304,lon:75.8710,type:"hospital",ph:"+91-731-4700000",addr:"Manik Bagh Road, Indore"},
+  {n:"CHL Hospital Indore",city:"Indore",lat:22.7196,lon:75.8819,type:"hospital",ph:"+91-731-4777000",addr:"AB Road, Indore"},
+  // ── NAGPUR ──
+  {n:"Alexis Multispeciality Hospital",city:"Nagpur",lat:21.1498,lon:79.0882,type:"hospital",ph:"+91-712-6699999",addr:"Nagpur-Amravati Road, Nagpur"},
+  {n:"Orange City Hospital",city:"Nagpur",lat:21.1458,lon:79.1033,type:"hospital",ph:"+91-712-6636222",addr:"Nagpur"},
+  {n:"Wockhardt Hospital Nagpur",city:"Nagpur",lat:21.1579,lon:79.0903,type:"hospital",ph:"+91-712-6697777",addr:"Nagpur"},
+  // ── BHOPAL ──
+  {n:"Bansal Hospital Bhopal",city:"Bhopal",lat:23.2264,lon:77.4019,type:"hospital",ph:"+91-755-4096100",addr:"C Sector, Shahpura, Bhopal"},
+  {n:"Hamidia Hospital",city:"Bhopal",lat:23.2613,lon:77.3992,type:"hospital",ph:"+91-755-2540222",addr:"Royal Market, Bhopal"},
+  // ── PATNA ──
+  {n:"Paras HMRI Hospital Patna",city:"Patna",lat:25.5948,lon:85.1376,type:"hospital",ph:"+91-612-3041200",addr:"Raja Bazaar, Patna"},
+  {n:"IGIMS Patna",city:"Patna",lat:25.6084,lon:85.1286,type:"hospital",ph:"+91-612-2297624",addr:"Sheikhpura, Patna"},
+  // ── SURAT ──
+  {n:"Kiran Hospital Surat",city:"Surat",lat:21.1702,lon:72.8311,type:"hospital",ph:"+91-261-2251010",addr:"Majura Gate, Surat"},
+  {n:"Nirali Hospital Surat",city:"Surat",lat:21.2010,lon:72.8282,type:"hospital",ph:"+91-261-2235550",addr:"Varachha Road, Surat"},
+  // ── COIMBATORE ──
+  {n:"PSG Hospitals Coimbatore",city:"Coimbatore",lat:10.9988,lon:77.0146,type:"hospital",ph:"+91-422-4345000",addr:"Peelamedu, Coimbatore"},
+  {n:"KMCH Hospital",city:"Coimbatore",lat:11.0073,lon:77.0088,type:"hospital",ph:"+91-422-4323800",addr:"Avinashi Road, Coimbatore"},
+  // ── VISAKHAPATNAM ──
+  {n:"Apollo Hospitals Visakhapatnam",city:"Visakhapatnam",lat:17.7239,lon:83.3119,type:"hospital",ph:"+91-891-2877777",addr:"Bheemunipatnam, Visakhapatnam"},
+  {n:"Seven Hills Hospital Vizag",city:"Visakhapatnam",lat:17.7289,lon:83.2937,type:"hospital",ph:"+91-891-2554555",addr:"Rockdale Layout, Visakhapatnam"},
+  // ── VADODARA ──
+  {n:"SSG Hospital Vadodara",city:"Vadodara",lat:22.3217,lon:73.1851,type:"hospital",ph:"+91-265-2225050",addr:"Jail Road, Vadodara"},
+  {n:"Bhailal Amin General Hospital",city:"Vadodara",lat:22.3149,lon:73.1929,type:"hospital",ph:"+91-265-2280102",addr:"Gorwa Road, Vadodara"},
+  // ── RANCHI ──
+  {n:"Medica Ranchi Hospital",city:"Ranchi",lat:23.3441,lon:85.3096,type:"hospital",ph:"+91-651-3509100",addr:"Irba, Ranchi"},
+  {n:"RIMS Ranchi",city:"Ranchi",lat:23.3565,lon:85.3294,type:"hospital",ph:"+91-651-2542952",addr:"Bariatu Road, Ranchi"},
+  // ── BHUBANESWAR ──
+  {n:"AIIMS Bhubaneswar",city:"Bhubaneswar",lat:20.1889,lon:85.7498,type:"hospital",ph:"+91-674-2476789",addr:"Sijua, Bhubaneswar"},
+  {n:"CARE Hospitals Bhubaneswar",city:"Bhubaneswar",lat:20.2950,lon:85.8256,type:"hospital",ph:"+91-674-6655000",addr:"Unit-4, Bhubaneswar"},
+  // ── GUWAHATI ──
+  {n:"Excelcare Hospital",city:"Guwahati",lat:26.1422,lon:91.7362,type:"hospital",ph:"+91-361-2238003",addr:"Lachit Nagar, Guwahati"},
+  {n:"GNRC Hospital",city:"Guwahati",lat:26.1490,lon:91.7697,type:"hospital",ph:"+91-361-2224401",addr:"Dispur, Guwahati"},
+  // ── RAIPUR ──
+  {n:"Ramakrishna Care Hospital",city:"Raipur",lat:21.2366,lon:81.6337,type:"hospital",ph:"+91-771-4063000",addr:"Pachpedhi Naka, Raipur"},
+  {n:"Apollo BSR Hospital Raipur",city:"Raipur",lat:21.2466,lon:81.6524,type:"hospital",ph:"+91-771-6670001",addr:"GE Road, Raipur"},
+  // ── NASHIK ──
+  {n:"Wockhardt Hospital Nashik",city:"Nashik",lat:20.0038,lon:73.7793,type:"hospital",ph:"+91-253-6639999",addr:"Pathardi Phata, Nashik"},
+  {n:"Jagjivan Ram Hospital Nashik",city:"Nashik",lat:19.9975,lon:73.7898,type:"hospital",ph:"+91-253-2318000",addr:"Nashik Road, Nashik"},
+];
+
+// ════════════════════════════════════════
+//  MAP SETUP
+// ════════════════════════════════════════
+const isDark = () => document.body.getAttribute('data-theme') !== 'light';
+
+const TILE_DARK  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+const TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+const TILE_ATTR  = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+const map = L.map('map', { zoomControl: true, scrollWheelZoom: true })
+              .setView([22.5937, 78.9629], 5);
+
+let tileLayer = L.tileLayer(isDark() ? TILE_DARK : TILE_LIGHT, {
+  attribution: TILE_ATTR, maxZoom: 19, subdomains: 'abcd'
+}).addTo(map);
+
+document.getElementById('themeToggle')?.addEventListener('click', () => {
+  setTimeout(() => {
+    map.removeLayer(tileLayer);
+    tileLayer = L.tileLayer(isDark() ? TILE_DARK : TILE_LIGHT, {
+      attribution: TILE_ATTR, maxZoom: 19, subdomains: 'abcd'
+    }).addTo(map);
+  }, 60);
+});
+
+// ════════════════════════════════════════
+//  ICONS
+// ════════════════════════════════════════
+const mkIcon = (emoji, bg, border, shadow) => L.divIcon({
+  className: '',
+  html: `<div style="background:${bg};border:2px solid ${border};border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 4px 14px ${shadow}">${emoji}</div>`,
+  iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-34]
+});
+const ICO_HOSP   = mkIcon('🏥','#dc2626','#fca5a5','rgba(239,68,68,.5)');
+const ICO_CLINIC = mkIcon('🏨','#7c3aed','#c4b5fd','rgba(124,58,237,.5)');
+const ICO_DOC    = mkIcon('🩺','#0891b2','#67e8f9','rgba(6,182,212,.5)');
+const ICO_CENTER = mkIcon('📍','#059669','#6ee7b7','rgba(5,150,105,.5)');
+
+const getIcon = t => t==='hospital' ? ICO_HOSP : t==='doctor' ? ICO_DOC : ICO_CLINIC;
+const getBadge = t => t==='hospital' ? '<span class="badge-hospital">🏥 Hospital</span>'
+                    : t==='doctor'   ? '<span class="badge-doctor">🩺 Cardiologist</span>'
+                    :                  '<span class="badge-clinic">🏨 Clinic</span>';
+
+// ════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════
+let markers=[], centerMarker=null, allResults=[], searchLat=null, searchLon=null;
+
+const setStatus = (msg,col) => { const e=document.getElementById('statusMsg'); e.textContent=msg; e.style.color=col||'rgba(252,165,165,.85)' };
+const setLoading = on => {
+  document.getElementById('searchSpinner').style.display=on?'block':'none';
+  document.getElementById('searchBtnTxt').textContent=on?'Searching…':'🔍 Search';
+  document.getElementById('searchBtn').disabled=on;
+};
+const clearMarkers = () => { markers.forEach(m=>map.removeLayer(m)); markers=[]; if(centerMarker){map.removeLayer(centerMarker);centerMarker=null} };
+const haversine = (la1,lo1,la2,lo2) => { const R=6371,dL=(la2-la1)*Math.PI/180,dO=(lo2-lo1)*Math.PI/180,a=Math.sin(dL/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dO/2)**2; return R*2*Math.asin(Math.sqrt(a)) };
+const fmtDist = km => km<1 ? `${Math.round(km*1000)} m` : `${km.toFixed(1)} km`;
+
+// ════════════════════════════════════════
+//  GEOCODE (Nominatim)
+// ════════════════════════════════════════
+async function geocode(q) {
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`,
+    { headers: {'Accept-Language':'en','User-Agent':'HeartCareAI/1.0'} });
+  const data = await res.json();
+  if (!data.length) throw new Error('Location not found. Please try exact city name.');
+  return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), label: data[0].display_name };
+}
+
+// ════════════════════════════════════════
+//  SEARCH FROM STATIC DB
+// ════════════════════════════════════════
+function searchStatic(lat, lon, radius) {
+  const radiusKm = radius / 1000;
+  return HOSPITALS_DB
+    .map(h => ({ ...h, dist: haversine(lat, lon, h.lat, h.lon) }))
+    .filter(h => h.dist <= radiusKm)
+    .sort((a,b) => a.dist - b.dist);
+}
+
+// ════════════════════════════════════════
+//  OVERPASS (supplemental, async)
+// ════════════════════════════════════════
+async function fetchOverpass(lat, lon, radius) {
+  const q = `[out:json][timeout:20];(node["amenity"="hospital"](around:${radius},${lat},${lon});way["amenity"="hospital"](around:${radius},${lat},${lon});node["amenity"="clinic"](around:${radius},${lat},${lon});node["healthcare"="cardiologist"](around:${radius},${lat},${lon}););out center body;`;
+  const res = await fetch('https://overpass-api.de/api/interpreter', { method:'POST', body:'data='+encodeURIComponent(q) });
+  return await res.json();
+}
+
+// ════════════════════════════════════════
+//  RENDER CARDS
+// ════════════════════════════════════════
+function renderCards(results) {
+  const list = document.getElementById('resultsList');
+  const filter = document.getElementById('typeFilter').value;
+  const shown = filter==='all' ? results : results.filter(r => filter==='hospital' ? r.type==='hospital' : r.type!=='hospital');
+
+  document.getElementById('resultCount').textContent = `${shown.length} found`;
+
+  if (!shown.length) {
+    list.innerHTML = `<div class="text-center py-4"><div style="font-size:2rem">🔍</div><div class="sub mt-2">Is area mein koi result nahi mila.</div><div class="mini mt-1" style="opacity:.6">Radius badhao ya doosri city try karo.</div></div>`;
+    return;
+  }
+
+  list.innerHTML = shown.map((r,i) => `
+    <div class="doc-card mb-2" id="card-${i}" onclick="focusCard(${i})">
+      <div class="d-flex justify-content-between align-items-start gap-2 mb-1 flex-wrap">
+        <div class="fw-bold" style="font-size:.88rem;line-height:1.3">${r.n}</div>
+        ${getBadge(r.type)}
+      </div>
+      <div class="mini mb-1" style="opacity:.65">📍 ${r.addr||r.city||''}</div>
+      <div class="d-flex gap-3 flex-wrap align-items-center">
+        <span class="mini">📏 ${fmtDist(r.dist)}</span>
+        ${r.ph ? `<span class="mini">📞 ${r.ph}</span>` : ''}
+        ${r.city ? `<span class="mini" style="opacity:.5">🏙️ ${r.city}</span>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+function focusCard(i) {
+  document.querySelectorAll('.doc-card').forEach(c=>c.classList.remove('active'));
+  const card = document.getElementById(`card-${i}`);
+  if (card) { card.classList.add('active'); card.scrollIntoView({behavior:'smooth',block:'nearest'}) }
+  if (markers[i]) { map.setView(markers[i].getLatLng(), 15); markers[i].openPopup() }
+}
+
+function applyFilter() { if (allResults.length) renderCards(allResults) }
+
+// ════════════════════════════════════════
+//  ADD MARKERS TO MAP
+// ════════════════════════════════════════
+function addMarkers(results) {
+  results.forEach((r,i) => {
+    const m = L.marker([r.lat, r.lon], { icon: getIcon(r.type) })
+      .addTo(map)
+      .bindPopup(`<b>${r.n}</b><br><span style="opacity:.7">📏 ${fmtDist(r.dist)}</span>${r.ph?`<br>📞 ${r.ph}`:''}`);
+    m.on('click', () => {
+      document.querySelectorAll('.doc-card').forEach(c=>c.classList.remove('active'));
+      const card = document.getElementById(`card-${i}`);
+      if(card){ card.classList.add('active'); card.scrollIntoView({behavior:'smooth',block:'nearest'}) }
+    });
+    markers.push(m);
+  });
+}
+
+// ════════════════════════════════════════
+//  MAIN SEARCH
+// ════════════════════════════════════════
+async function doSearch() {
+  const loc = document.getElementById('locationInput').value.trim();
+  if (!loc) { setStatus('Please enter a city or location name.'); return }
+
+  setLoading(true);
+  setStatus('Searching…');
+  clearMarkers();
+  document.getElementById('emptyState') && (document.getElementById('emptyState').style.display='none');
+  document.getElementById('resultsList').innerHTML = `<div class="text-center py-4"><div class="spinner mx-auto mb-3"></div><div class="sub">Dhundh raha hun…</div></div>`;
+
+  try {
+    const { lat, lon, label } = await geocode(loc);
+    searchLat = lat; searchLon = lon;
+
+    map.setView([lat, lon], 12);
+    centerMarker = L.marker([lat, lon], { icon: ICO_CENTER }).addTo(map)
+      .bindPopup(`<b>📍 Search Center</b><br><span style="opacity:.8">${label.split(',').slice(0,2).join(',')}</span>`).openPopup();
+
+    const radius = parseInt(document.getElementById('radiusSelect').value);
+
+    // 1. Static DB first (instant)
+    const staticResults = searchStatic(lat, lon, radius);
+
+    if (staticResults.length) {
+      allResults = staticResults;
+      addMarkers(allResults);
+      renderCards(allResults);
+      updateStats(allResults, radius);
+      setStatus(`${allResults.length} results found. Loading live data…`, 'rgba(34,197,94,.9)');
+    } else {
+      setStatus('No results in static DB. Checking live map data…');
+    }
+
+    // 2. Overpass API (async enrichment)
+    try {
+      const osm = await fetchOverpass(lat, lon, radius);
+      const seen = new Set(allResults.map(r => `${r.lat.toFixed(4)},${r.lon.toFixed(4)}`));
+
+      for (const el of (osm.elements||[])) {
+        const tags = el.tags||{};
+        const name = tags['name:en']||tags.name;
+        if (!name) continue;
+        const elLat = el.lat||(el.center&&el.center.lat);
+        const elLon = el.lon||(el.center&&el.center.lon);
+        if (!elLat||!elLon) continue;
+        const key = `${elLat.toFixed(4)},${elLon.toFixed(4)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const type = (tags.healthcare==='cardiologist'||tags.speciality==='cardiology') ? 'doctor'
+                   : tags.amenity==='hospital'||tags.healthcare==='hospital' ? 'hospital' : 'clinic';
+        allResults.push({ n:name, lat:elLat, lon:elLon, dist:haversine(lat,lon,elLat,elLon), type, addr:tags['addr:full']||tags['addr:street']||'', ph:tags.phone||'', city:'' });
+      }
+
+      allResults.sort((a,b)=>a.dist-b.dist);
+      clearMarkers();
+      centerMarker = L.marker([lat,lon],{icon:ICO_CENTER}).addTo(map).bindPopup('<b>📍 Search Center</b>');
+      addMarkers(allResults);
+      renderCards(allResults);
+      updateStats(allResults, radius);
+      setStatus(`${allResults.length} total facilities found within ${radius/1000} km.`, 'rgba(34,197,94,.9)');
+
+      if (allResults.length) {
+        const bounds = L.latLngBounds([[lat,lon],...allResults.map(r=>[r.lat,r.lon])]);
+        map.fitBounds(bounds, {padding:[30,30]});
+      }
+    } catch(e) {
+      // Overpass failed - static results already shown
+      if (!allResults.length) setStatus('Live data unavailable. No results in this area.', 'rgba(252,165,165,.85)');
+      else setStatus(`${allResults.length} facilities found (offline mode).`, 'rgba(251,191,36,.9)');
+    }
+
+  } catch(err) {
+    setStatus(err.message||'Search failed. Check internet connection.');
+    document.getElementById('resultsList').innerHTML = `<div class="text-center py-4"><div style="font-size:2rem">⚠️</div><div class="sub mt-2">${err.message||'Error'}</div></div>`;
+  } finally {
+    setLoading(false);
+  }
+}
+
+function updateStats(results, radius) {
+  const hosp = results.filter(r=>r.type==='hospital').length;
+  document.getElementById('sTot').textContent  = results.length;
+  document.getElementById('sHosp').textContent = hosp;
+  document.getElementById('sClin').textContent = results.length - hosp;
+  document.getElementById('sRad').textContent  = `${radius/1000} km`;
+  document.getElementById('statsRow').style.display = '';
+}
+
+// ════════════════════════════════════════
+//  GPS LOCATION
+// ════════════════════════════════════════
+function useGPS() {
+  if (!navigator.geolocation) { setStatus('Geolocation not supported in your browser.'); return }
+  setStatus('Getting GPS location…');
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const lat = pos.coords.latitude, lon = pos.coords.longitude;
+    searchLat=lat; searchLon=lon;
+
+    // Reverse geocode city name
+    try {
+      const rev = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+        {headers:{'Accept-Language':'en','User-Agent':'HeartCareAI/1.0'}}).then(r=>r.json());
+      const city = rev?.address?.city||rev?.address?.town||rev?.address?.county||'';
+      document.getElementById('locationInput').value = city || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    } catch(e) {
+      document.getElementById('locationInput').value = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    }
+    doSearch();
+  }, () => setStatus('Location access denied. Please allow location permission.'));
+}
+
+// ════════════════════════════════════════
+//  QUICK SEARCH
+// ════════════════════════════════════════
+function quickSearch(city) {
+  document.getElementById('locationInput').value = city;
+  doSearch();
+}
+</script>
+{% endblock %}

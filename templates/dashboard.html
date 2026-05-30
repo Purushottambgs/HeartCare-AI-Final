@@ -1,0 +1,352 @@
+{% extends 'base.html' %}
+{% set title = 'HeartCare AI • Dashboard' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+  <div>
+    <div class="kicker">analytics</div>
+    <h1 class="mb-0">Dashboard</h1>
+    <p class="sub mb-0">Prediction statistics, ECG scans, and system insights.</p>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/export_csv" class="btn btn-glow btn-sm">⬇ Export CSV</a>
+    <a href="/history" class="btn btn-ghost btn-sm">Full History</a>
+    <a href="/ecg_history" class="btn btn-ghost btn-sm">ECG History</a>
+  </div>
+</div>
+
+<!-- Top Stats Row -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4 col-lg-2">
+    <div class="form-card p-3 text-center h-100">
+      <div class="stat-icon">🫀</div>
+      <div class="mini mt-1">Total Predictions</div>
+      <div class="h3 mt-1 mb-0 fw-bold" style="color:#7C3AED">{{ data.total }}</div>
+    </div>
+  </div>
+  <div class="col-md-4 col-lg-2">
+    <div class="form-card p-3 text-center h-100">
+      <div class="stat-icon">📊</div>
+      <div class="mini mt-1">Avg Risk Score</div>
+      <div class="h3 mt-1 mb-0 fw-bold" style="color:#06B6D4">{{ data.avg_prob }}%</div>
+    </div>
+  </div>
+  <div class="col-md-4 col-lg-2">
+    <div class="form-card p-3 text-center h-100">
+      <div class="stat-icon">⚖️</div>
+      <div class="mini mt-1">Avg BMI</div>
+      <div class="h3 mt-1 mb-0 fw-bold" style="color:#f59e0b">{{ data.avg_bmi }}</div>
+    </div>
+  </div>
+  <div class="col-md-4 col-lg-2">
+    <div class="form-card p-3 text-center h-100">
+      <div class="stat-icon">💉</div>
+      <div class="mini mt-1">Avg Systolic BP</div>
+      <div class="h3 mt-1 mb-0 fw-bold" style="color:#ef4444">{{ data.avg_ap_hi }}</div>
+    </div>
+  </div>
+  <div class="col-md-4 col-lg-2">
+    <div class="form-card p-3 text-center h-100">
+      <div class="stat-icon">📷</div>
+      <div class="mini mt-1">ECG Scans Total</div>
+      <div class="h3 mt-1 mb-0 fw-bold" style="color:#22c55e">{{ data.ecg_total }}</div>
+    </div>
+  </div>
+  <div class="col-md-4 col-lg-2">
+    <div class="form-card p-3 text-center h-100">
+      <div class="stat-icon">⚠️</div>
+      <div class="mini mt-1">ECG Abnormal</div>
+      <div class="h3 mt-1 mb-0 fw-bold" style="color:#ff6b6b">{{ data.ecg_abnormal }}</div>
+    </div>
+  </div>
+  <div class="col-md-4 col-lg-2">
+    <div class="form-card p-3 text-center h-100">
+      <div class="stat-icon">🔥</div>
+      <div class="mini mt-1">High Risk %</div>
+      <div class="h3 mt-1 mb-0 fw-bold" style="color:#f97316">{{ data.high_risk_pct }}%</div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-4 mb-4">
+
+  <!-- Donut: Risk Distribution -->
+  <div class="col-lg-4">
+    <div class="hero-card p-4 h-100">
+      <h5 class="section-title mb-1">Risk Distribution</h5>
+      <div class="mini mb-3">Heart-risk prediction breakdown</div>
+      <canvas id="riskChart" style="max-height:260px;"
+              data-low="{{ data.low }}" data-moderate="{{ data.moderate }}"
+              data-high="{{ data.high }}" data-critical="{{ data.critical }}"></canvas>
+    </div>
+  </div>
+
+  <!-- Bar: BMI Categories -->
+  <div class="col-lg-4">
+    <div class="hero-card p-4 h-100">
+      <h5 class="section-title mb-1">BMI Distribution</h5>
+      <div class="mini mb-3">Patient weight category breakdown</div>
+      <canvas id="bmiChart" style="max-height:260px;"
+              data-under="{{ data.bmi_under }}" data-normal="{{ data.bmi_normal }}"
+              data-over="{{ data.bmi_over }}" data-obese="{{ data.bmi_obese }}"></canvas>
+    </div>
+  </div>
+
+  <!-- ECG Results Donut -->
+  <div class="col-lg-4">
+    <div class="hero-card p-4 h-100">
+      <h5 class="section-title mb-1">ECG Scan Results</h5>
+      <div class="mini mb-3">Normal vs Abnormal ECG scans</div>
+      {% if data.ecg_total > 0 %}
+      <canvas id="ecgChart" style="max-height:260px;"
+              data-normal="{{ data.ecg_normal }}"
+              data-abnormal="{{ data.ecg_abnormal }}"></canvas>
+      {% else %}
+      <div class="text-center pt-4">
+        <div style="font-size:2.5rem">📷</div>
+        <div class="mini mt-2">No ECG scans yet.</div>
+        <a href="/ecg_analysis" class="btn btn-ghost btn-sm mt-2">Upload ECG →</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Risk Summary Cards + Trend -->
+<div class="row g-4 mb-4">
+
+  <!-- Risk Counts -->
+  <div class="col-lg-5">
+    <div class="hero-card p-4 h-100">
+      <h5 class="section-title mb-3">Risk Summary</h5>
+      <div class="row g-3">
+        <div class="col-6">
+          <div class="form-card p-3 text-center">
+            <div class="mini">Low Risk</div>
+            <div class="h3 mt-1 mb-0 text-success">{{ data.low }}</div>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="form-card p-3 text-center">
+            <div class="mini">Moderate Risk</div>
+            <div class="h3 mt-1 mb-0 text-warning">{{ data.moderate }}</div>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="form-card p-3 text-center">
+            <div class="mini">High Risk</div>
+            <div class="h3 mt-1 mb-0 text-danger">{{ data.high }}</div>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="form-card p-3 text-center">
+            <div class="mini">Critical Risk</div>
+            <div class="h3 mt-1 mb-0" style="color:#ff6b6b;">{{ data.critical }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-3 rounded-4 mt-4"
+           style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09)">
+        <div class="mini fw-bold mb-2">System Insights</div>
+        <ul class="mb-0 ps-3" style="color:rgba(234,240,255,.82);line-height:2;">
+          <li>Total records: <strong>{{ data.total }}</strong></li>
+          <li>Avg BMI: <strong>{{ data.avg_bmi }}</strong></li>
+          <li>Avg Systolic BP: <strong>{{ data.avg_ap_hi }}</strong> mmHg</li>
+          <li>Avg Diastolic BP: <strong>{{ data.avg_ap_lo }}</strong> mmHg</li>
+          <li>ECG scans: <strong>{{ data.ecg_total }}</strong>
+              ({{ data.ecg_normal }} normal / {{ data.ecg_abnormal }} abnormal)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trend Line -->
+  <div class="col-lg-7">
+    <div class="hero-card p-4 h-100">
+      <h5 class="section-title mb-1">Risk Score Trend</h5>
+      <div class="mini mb-3">Last {{ data.trend_probs|length }} predictions (most recent on right)</div>
+      {% if data.trend_probs %}
+      <canvas id="trendChart" style="max-height:300px;"
+              data-probs="{{ data.trend_probs | join(',') }}"
+              data-labels="{{ data.trend_labels | join('|') }}"></canvas>
+      {% else %}
+      <div class="text-center pt-5">
+        <div class="mini">No trend data yet. Make predictions first.</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Recent Predictions Table -->
+<div class="hero-card p-4 mt-2">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h5 class="section-title mb-0">Recent Predictions</h5>
+    <a href="/history" class="btn btn-ghost btn-sm">View all →</a>
+  </div>
+
+  {% if data.recent_records %}
+  <div class="table-responsive">
+    <table class="table table-dark table-borderless align-middle mb-0" id="recentTable">
+      <thead>
+        <tr>
+          <th style="color:rgba(234,240,255,.65);font-size:.82rem;">#</th>
+          <th style="color:rgba(234,240,255,.65);font-size:.82rem;">Patient</th>
+          <th style="color:rgba(234,240,255,.65);font-size:.82rem;">Date</th>
+          <th style="color:rgba(234,240,255,.65);font-size:.82rem;">Age</th>
+          <th style="color:rgba(234,240,255,.65);font-size:.82rem;">BP</th>
+          <th style="color:rgba(234,240,255,.65);font-size:.82rem;">BMI</th>
+          <th style="color:rgba(234,240,255,.65);font-size:.82rem;">Score</th>
+          <th style="color:rgba(234,240,255,.65);font-size:.82rem;">Risk</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in data.recent_records %}
+        <tr style="border-bottom:1px solid rgba(255,255,255,.05);">
+          <td style="color:#eaf0ff;font-size:.88rem;">{{ row["id"] }}</td>
+          <td style="color:#eaf0ff;font-weight:600;">{{ row["patient_name"] or "Anonymous" }}</td>
+          <td style="color:#eaf0ff;font-size:.82rem;">{{ row["created_at"] }}</td>
+          <td style="color:#eaf0ff;">{{ row["age"]|int }}</td>
+          <td style="color:#eaf0ff;">{{ row["ap_hi"]|int }}/{{ row["ap_lo"]|int }}</td>
+          <td style="color:#eaf0ff;">{{ row["bmi"] }}</td>
+          <td style="color:#eaf0ff;font-weight:700;">{{ row["probability"] }}%</td>
+          <td>
+            {% if row["risk_level"] == "Low Risk" %}
+              <span class="badge rounded-pill bg-success">{{ row["risk_level"] }}</span>
+            {% elif row["risk_level"] == "Moderate Risk" %}
+              <span class="badge rounded-pill bg-warning text-dark">{{ row["risk_level"] }}</span>
+            {% elif row["risk_level"] == "High Risk" %}
+              <span class="badge rounded-pill bg-danger">{{ row["risk_level"] }}</span>
+            {% else %}
+              <span class="badge rounded-pill" style="background:#7f1d1d;">{{ row["risk_level"] }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="sub">No prediction records yet. <a href="/">Make your first prediction →</a></p>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const darkText = 'rgba(234,240,255,.75)';
+const gridColor = 'rgba(255,255,255,.07)';
+
+Chart.defaults.color = darkText;
+Chart.defaults.borderColor = gridColor;
+
+// 1. Risk Distribution Donut
+const riskEl = document.getElementById('riskChart');
+if (riskEl) {
+  const d = riskEl.dataset;
+  new Chart(riskEl, {
+    type: 'doughnut',
+    data: {
+      labels: ['Low Risk', 'Moderate', 'High Risk', 'Critical'],
+      datasets: [{
+        data: [parseInt(d.low)||0, parseInt(d.moderate)||0, parseInt(d.high)||0, parseInt(d.critical)||0],
+        backgroundColor: ['#22c55e','#f59e0b','#ef4444','#7f1d1d'],
+        borderWidth: 0, hoverOffset: 8
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '65%',
+      plugins: { legend: { position: 'bottom', labels: { padding: 16, font: { size: 12 } } } }
+    }
+  });
+}
+
+// 2. BMI Bar Chart
+const bmiEl = document.getElementById('bmiChart');
+if (bmiEl) {
+  const d = bmiEl.dataset;
+  new Chart(bmiEl, {
+    type: 'bar',
+    data: {
+      labels: ['Underweight', 'Normal', 'Overweight', 'Obese'],
+      datasets: [{
+        data: [parseInt(d.under)||0, parseInt(d.normal)||0, parseInt(d.over)||0, parseInt(d.obese)||0],
+        backgroundColor: ['#06B6D4','#22c55e','#f59e0b','#ef4444'],
+        borderRadius: 8, borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: darkText, font: { size: 11 } } },
+        y: { grid: { color: gridColor }, ticks: { color: darkText, stepSize: 1 }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+// 3. ECG Donut
+const ecgEl = document.getElementById('ecgChart');
+if (ecgEl) {
+  new Chart(ecgEl, {
+    type: 'doughnut',
+    data: {
+      labels: ['Normal ECG', 'Abnormal ECG'],
+      datasets: [{
+        data: [
+          ecgEl.dataset.normal ? parseInt(ecgEl.dataset.normal) : 0,
+          ecgEl.dataset.abnormal ? parseInt(ecgEl.dataset.abnormal) : 0
+        ],
+        backgroundColor: ['#22c55e', '#ef4444'],
+        borderWidth: 0, hoverOffset: 8
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '65%',
+      plugins: { legend: { position: 'bottom', labels: { padding: 16, font: { size: 12 } } } }
+    }
+  });
+}
+
+// 4. Trend Line
+const trendEl = document.getElementById('trendChart');
+if (trendEl) {
+  const probs  = trendEl.dataset.probs  ? trendEl.dataset.probs.split(',').map(Number) : [];
+  const labels = trendEl.dataset.labels ? trendEl.dataset.labels.split('|') : [];
+  new Chart(trendEl, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Risk Score %',
+        data: probs,
+        borderColor: '#7C3AED',
+        backgroundColor: 'rgba(124,58,237,.12)',
+        tension: 0.4, fill: true,
+        pointBackgroundColor: '#7C3AED',
+        pointRadius: 5, pointHoverRadius: 7
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: darkText, font: { size: 11 } } },
+        y: {
+          grid: { color: gridColor }, ticks: { color: darkText },
+          min: 0, max: 100,
+          title: { display: true, text: 'Risk %', color: darkText }
+        }
+      }
+    }
+  });
+}
+</script>
+{% endblock %}

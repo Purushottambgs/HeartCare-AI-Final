@@ -1,0 +1,269 @@
+{% extends 'base.html' %}
+{% set title = 'HeartCare AI • Admin Panel' %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+.rf-bar-track{
+  background:rgba(255,255,255,.08); border-radius:999px; height:10px; overflow:hidden;
+}
+.rf-bar-fill{
+  height:10px; border-radius:999px;
+  background:linear-gradient(90deg,#7c3aed,#a78bfa);
+  transition:width 1s ease;
+}
+.user-row{
+  padding:10px 14px; border-radius:10px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  margin-bottom:6px;
+  transition:background .15s;
+}
+.user-row:hover{ background:rgba(255,255,255,.07); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+  <div>
+    <div class="kicker">admin</div>
+    <h1 class="mb-0">Admin Panel</h1>
+    <p class="sub mb-0">System analytics, user management, and prediction statistics.</p>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/export_csv" class="btn btn-glow btn-sm">⬇ Export CSV</a>
+    <a href="/dashboard" class="btn btn-ghost btn-sm">📊 Dashboard</a>
+  </div>
+</div>
+
+<!-- ── TOP STAT CARDS ── -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="admin-stat-card">
+      <div class="stat-icon">👥</div>
+      <div class="mini mt-1">Total Users</div>
+      <div class="admin-big">{{ total_users }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="admin-stat-card">
+      <div class="stat-icon">🫀</div>
+      <div class="mini mt-1">Total Predictions</div>
+      <div class="admin-big" style="background:linear-gradient(135deg,#67e8f9,#0891b2);-webkit-background-clip:text;background-clip:text">{{ total_preds }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="admin-stat-card">
+      <div class="stat-icon">🚨</div>
+      <div class="mini mt-1">High Risk Patients</div>
+      <div class="admin-big" style="background:linear-gradient(135deg,#fca5a5,#dc2626);-webkit-background-clip:text;background-clip:text">{{ high_risk_count }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="admin-stat-card">
+      <div class="stat-icon">📷</div>
+      <div class="mini mt-1">ECG Uploads</div>
+      <div class="admin-big" style="background:linear-gradient(135deg,#86efac,#16a34a);-webkit-background-clip:text;background-clip:text">{{ ecg_total }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="admin-stat-card">
+      <div class="stat-icon">📊</div>
+      <div class="mini mt-1">Avg Risk Score</div>
+      <div class="admin-big" style="background:linear-gradient(135deg,#fcd34d,#d97706);-webkit-background-clip:text;background-clip:text">{{ avg_risk }}%</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="admin-stat-card">
+      <div class="stat-icon">⚠️</div>
+      <div class="mini mt-1">ECG Abnormal</div>
+      <div class="admin-big" style="background:linear-gradient(135deg,#f97316,#ea580c);-webkit-background-clip:text;background-clip:text">{{ ecg_abnormal }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="admin-stat-card">
+      <div class="stat-icon">🔥</div>
+      <div class="mini mt-1">Top Risk Factor</div>
+      <div class="mt-1 fw-bold" style="font-size:1rem;color:#a78bfa">{{ top_rf }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="admin-stat-card">
+      <div class="stat-icon">✅</div>
+      <div class="mini mt-1">Low Risk Patients</div>
+      <div class="admin-big" style="background:linear-gradient(135deg,#4ade80,#16a34a);-webkit-background-clip:text;background-clip:text">{{ low }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── CHARTS ROW ── -->
+<div class="row g-4 mb-4">
+
+  <!-- Risk Distribution Donut -->
+  <div class="col-lg-4">
+    <div class="hero-card p-4 h-100">
+      <h5 class="section-title mb-1">Risk Distribution</h5>
+      <div class="mini mb-3">Prediction breakdown by risk level</div>
+      <canvas id="adminRiskChart" style="max-height:240px;"
+              data-low="{{ low }}" data-moderate="{{ moderate }}"
+              data-high="{{ high }}" data-critical="{{ critical }}"></canvas>
+    </div>
+  </div>
+
+  <!-- Weekly Trend -->
+  <div class="col-lg-5">
+    <div class="hero-card p-4 h-100">
+      <h5 class="section-title mb-1">Weekly Prediction Trend</h5>
+      <div class="mini mb-3">Daily prediction count</div>
+      <canvas id="adminTrendChart" style="max-height:240px;"
+              data-labels='{{ trend_labels }}'
+              data-counts='{{ trend_counts }}'></canvas>
+    </div>
+  </div>
+
+  <!-- Risk Factor Breakdown -->
+  <div class="col-lg-3">
+    <div class="hero-card p-4 h-100">
+      <h5 class="section-title mb-3">Risk Factor Prevalence</h5>
+      {% if total_preds > 0 %}
+        {% for rf_name, rf_val in rf_counts.items() %}
+        <div class="mb-2">
+          <div class="d-flex justify-content-between mini mb-1">
+            <span>{{ rf_name }}</span>
+            <span class="fw-bold">{{ rf_val }}</span>
+          </div>
+          <div class="rf-bar-track">
+            <div class="rf-bar-fill" data-w="{{ ((rf_val / total_preds) * 100)|round|int }}"></div>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="sub">No predictions yet.</div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- ── RECENT USERS ── -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="hero-card p-4 h-100">
+      <h5 class="section-title mb-3">👥 Recent Registered Users</h5>
+      {% if recent_users %}
+        {% for u in recent_users %}
+        <div class="user-row d-flex justify-content-between align-items-center">
+          <div>
+            <div class="fw-bold" style="font-size:.9rem">{{ u.username }}</div>
+            <div class="mini" style="font-size:.78rem">{{ u.email or 'No email' }}</div>
+          </div>
+          <div class="mini" style="font-size:.75rem;opacity:.7">{{ u.created_at[:10] if u.created_at else 'N/A' }}</div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="sub">No users registered yet.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Summary stats -->
+  <div class="col-lg-6">
+    <div class="hero-card p-4 h-100">
+      <h5 class="section-title mb-3">📊 System Summary</h5>
+      <div class="row g-3">
+        <div class="col-6">
+          <div class="form-card p-3 text-center">
+            <div class="mini">Low Risk</div>
+            <div class="h4 mb-0 fw-bold" style="color:#22c55e">{{ low }}</div>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="form-card p-3 text-center">
+            <div class="mini">Moderate Risk</div>
+            <div class="h4 mb-0 fw-bold" style="color:#f59e0b">{{ moderate }}</div>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="form-card p-3 text-center">
+            <div class="mini">High Risk</div>
+            <div class="h4 mb-0 fw-bold" style="color:#ef4444">{{ high }}</div>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="form-card p-3 text-center">
+            <div class="mini">Critical Risk</div>
+            <div class="h4 mb-0 fw-bold" style="color:#dc2626">{{ critical }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider my-3"></div>
+
+      <div class="d-flex flex-wrap gap-2">
+        <a href="/history" class="btn btn-ghost btn-sm">📜 All Predictions</a>
+        <a href="/ecg_history" class="btn btn-ghost btn-sm">📷 ECG History</a>
+        <a href="/export_csv" class="btn btn-ghost btn-sm">⬇ Export CSV</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Risk donut
+(function(){
+  const c = document.getElementById('adminRiskChart');
+  if (!c) return;
+  new Chart(c, {
+    type:'doughnut',
+    data:{
+      labels:['Low','Moderate','High','Critical'],
+      datasets:[{
+        data:[c.dataset.low, c.dataset.moderate, c.dataset.high, c.dataset.critical],
+        backgroundColor:['rgba(34,197,94,.75)','rgba(245,158,11,.75)','rgba(239,68,68,.75)','rgba(127,29,29,.85)'],
+        borderColor:'rgba(255,255,255,.08)',borderWidth:2
+      }]
+    },
+    options:{responsive:true,plugins:{legend:{labels:{color:'rgba(234,240,255,.75)',font:{size:11}}}}}
+  });
+})();
+
+// Weekly trend
+(function(){
+  const c = document.getElementById('adminTrendChart');
+  if (!c) return;
+  const labels = JSON.parse(c.dataset.labels || '[]');
+  const counts = JSON.parse(c.dataset.counts || '[]');
+  new Chart(c, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{
+        label:'Predictions',
+        data:counts,
+        backgroundColor:'rgba(124,58,237,.55)',
+        borderColor:'rgba(167,139,250,.8)',
+        borderWidth:1.5,
+        borderRadius:6
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{labels:{color:'rgba(234,240,255,.75)'}}},
+      scales:{
+        x:{ticks:{color:'rgba(234,240,255,.6)'},grid:{color:'rgba(255,255,255,.06)'}},
+        y:{ticks:{color:'rgba(234,240,255,.6)'},grid:{color:'rgba(255,255,255,.06)'}}
+      }
+    }
+  });
+})();
+
+// Risk factor bars
+document.querySelectorAll('.rf-bar-fill[data-w]').forEach(el => {
+  el.style.width = '0%';
+  setTimeout(() => { el.style.width = el.dataset.w + '%'; }, 300);
+});
+</script>
+{% endblock %}

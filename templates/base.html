@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ title if title else 'HeartCare AI' }}</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#070A12">
+  <link rel="apple-touch-icon" href="/static/img/heartimg.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+
+  {% block head %}{% endblock %}
+</head>
+<body class="bg-grid" data-theme="dark">
+
+<!-- ═══════════════════════ ECG WAVE BAR (top of page) ═══════════════════════ -->
+<div class="ecg-bar" aria-hidden="true">
+  <svg class="ecg-svg" viewBox="0 0 1200 40" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <polyline class="ecg-line" points="
+      0,20 60,20 70,20 80,5 90,35 100,20 110,20
+      160,20 170,20 180,5 190,35 200,20 210,20
+      260,20 270,20 280,5 290,35 300,20 310,20
+      360,20 370,20 380,5 390,35 400,20 410,20
+      460,20 470,20 480,5 490,35 500,20 510,20
+      560,20 570,20 580,5 590,35 600,20 610,20
+      660,20 670,20 680,5 690,35 700,20 710,20
+      760,20 770,20 780,5 790,35 800,20 810,20
+      860,20 870,20 880,5 890,35 900,20 910,20
+      960,20 970,20 980,5 990,35 1000,20 1010,20
+      1060,20 1070,20 1080,5 1090,35 1100,20 1110,20
+      1160,20 1170,20 1180,5 1190,35 1200,20
+    "/>
+  </svg>
+</div>
+
+<!-- ═══════════════════════ AI LOADING OVERLAY ═══════════════════════ -->
+<div class="overlay" id="aiOverlay" role="status" aria-live="polite">
+  <div class="box text-center">
+    <!-- ECG pulse inside overlay -->
+    <svg class="overlay-ecg mb-3" viewBox="0 0 300 40" xmlns="http://www.w3.org/2000/svg">
+      <polyline class="ecg-line-overlay" points="
+        0,20 30,20 40,20 50,5 60,35 70,20 80,20
+        110,20 120,20 130,5 140,35 150,20 160,20
+        190,20 200,20 210,5 220,35 230,20 240,20
+        270,20 280,20 290,5 300,35
+      "/>
+    </svg>
+    <div class="spinner mx-auto mb-3"></div>
+    <div class="fw-bold mb-2" style="font-size:1.05rem">Analyzing Patient Data…</div>
+    <div class="sub mb-3" id="overlayStep">Initializing AI engine…</div>
+    <div class="progress" style="height:5px;border-radius:999px;background:rgba(255,255,255,.1)">
+      <div class="progress-bar bg-info" id="overlayProgress" style="width:0%;transition:width .4s ease;border-radius:999px"></div>
+    </div>
+    <div class="d-flex flex-column gap-1 mt-3 text-start" style="font-size:.78rem">
+      <div class="overlay-step-item" id="step1">⏳ Reading patient vitals…</div>
+      <div class="overlay-step-item" id="step2">⏳ Running XGBoost model…</div>
+      <div class="overlay-step-item" id="step3">⏳ Computing SHAP attribution…</div>
+      <div class="overlay-step-item" id="step4">⏳ Calculating Heart Health Score…</div>
+      <div class="overlay-step-item" id="step5">⏳ Preparing PDF report…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ NAVBAR ═══════════════════════ -->
+<nav class="navbar navbar-expand-lg navbar-dark navbar-glass sticky-top">
+  <div class="container">
+
+    <!-- Brand -->
+    <a class="navbar-brand d-flex align-items-center gap-2 me-3" href="/">
+      <span class="brand-dot brand-pulse"></span>
+      <span class="fw-bold brand-text">HeartCare <span class="brand-ai">AI</span></span>
+    </a>
+
+    <!-- Mobile toggler -->
+    <button class="navbar-toggler border-0 p-1" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu"
+            aria-controls="navMenu" aria-expanded="false">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navMenu">
+      <!-- Left nav -->
+      <ul class="navbar-nav me-auto align-items-lg-center gap-1 mt-2 mt-lg-0">
+
+        <li class="nav-item">
+          <a href="/ecg_analysis" class="btn btn-ghost btn-sm nav-ecg">🫀 ECG</a>
+        </li>
+        <li class="nav-item">
+          <a href="/ai_assistant" class="btn btn-ghost btn-sm">🤖 AI Coach</a>
+        </li>
+        <li class="nav-item">
+          <a href="/find_doctor" class="btn btn-ghost btn-sm nav-doctor">🏥 Find Doctor</a>
+        </li>
+        <li class="nav-item">
+          <a href="/about_heart_disease" class="btn btn-ghost btn-sm">📖 About CVD</a>
+        </li>
+
+        <!-- Tools dropdown -->
+        <li class="nav-item dropdown">
+          <button class="btn btn-ghost btn-sm dropdown-toggle nav-tools" data-bs-toggle="dropdown" aria-expanded="false">
+            🔧 Tools
+          </button>
+          <ul class="dropdown-menu nav-dropdown-menu mt-1">
+            <li><a class="dropdown-item nav-dd-item" href="/simulate">🔬 Simulate Risk</a></li>
+            <li><a class="dropdown-item nav-dd-item" href="/dashboard">📊 Dashboard</a></li>
+            <li><a class="dropdown-item nav-dd-item" href="/wearable">⌚ Wearable</a></li>
+            <li><a class="dropdown-item nav-dd-item" href="/model_performance">🏆 Model Performance</a></li>
+            <li><hr class="dropdown-divider" style="border-color:rgba(255,255,255,.1)"></li>
+            <li><a class="dropdown-item nav-dd-item" href="/history">📜 History</a></li>
+            <li><a class="dropdown-item nav-dd-item" href="/ecg_history">📷 ECG History</a></li>
+            <li><a class="dropdown-item nav-dd-item" href="/admin">🛡 Admin Panel</a></li>
+          </ul>
+        </li>
+
+      </ul>
+
+      <!-- Right side -->
+      <div class="d-flex gap-2 align-items-center mt-2 mt-lg-0 flex-wrap flex-lg-nowrap">
+
+        <!-- Theme toggle -->
+        <button class="btn btn-ghost btn-sm px-2" type="button" id="themeToggle" aria-label="Toggle theme">
+          <span class="theme-icon" aria-hidden="true">🌙</span>
+        </button>
+
+        {% if session.get('user_id') %}
+          <a class="btn btn-ghost btn-sm" href="/profile" style="color:rgba(167,139,250,.9);white-space:nowrap">
+            👤 {{ session.get('username','Profile')|truncate(10,True,'…') }}
+          </a>
+          <a class="btn btn-ghost btn-sm" href="/logout" style="color:rgba(239,68,68,.8);font-size:.82rem">Logout</a>
+        {% else %}
+          <a class="btn btn-ghost btn-sm" href="/login">Login</a>
+          <a class="btn btn-glow btn-sm" href="/signup">Sign Up</a>
+        {% endif %}
+
+        <a class="btn btn-glow btn-sm" href="/" style="white-space:nowrap">+ New Check</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════ MAIN CONTENT ═══════════════════════ -->
+<main class="container hero">
+  {% block content %}{% endblock %}
+
+  <!-- Footer with ECG wave -->
+  <footer class="text-center mt-5 mb-4 footer-note">
+    <div class="divider my-3"></div>
+
+    <!-- Footer ECG animation -->
+    <div class="footer-ecg-wrap" aria-hidden="true">
+      <svg class="footer-ecg-svg" viewBox="0 0 800 30" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+        <polyline class="footer-ecg-line" points="
+          0,15 50,15 60,15 65,3 72,27 78,15 90,15
+          130,15 140,15 145,3 152,27 158,15 170,15
+          210,15 220,15 225,3 232,27 238,15 250,15
+          290,15 300,15 305,3 312,27 318,15 330,15
+          370,15 380,15 385,3 392,27 398,15 410,15
+          450,15 460,15 465,3 472,27 478,15 490,15
+          530,15 540,15 545,3 552,27 558,15 570,15
+          610,15 620,15 625,3 632,27 638,15 650,15
+          690,15 700,15 705,3 712,27 718,15 730,15
+          770,15 780,15 785,3 792,27 800,15
+        "/>
+      </svg>
+    </div>
+
+    <div class="d-flex flex-wrap justify-content-center gap-3 mb-2" style="font-size:.8rem;opacity:.5">
+      <a href="/" style="color:inherit;text-decoration:none">Home</a>
+      <a href="/ecg_analysis" style="color:inherit;text-decoration:none">ECG Analysis</a>
+      <a href="/find_doctor" style="color:inherit;text-decoration:none">Find Doctor</a>
+      <a href="/about_heart_disease" style="color:inherit;text-decoration:none">About CVD</a>
+      <a href="/dashboard" style="color:inherit;text-decoration:none">Dashboard</a>
+      <a href="/admin" style="color:inherit;text-decoration:none">Admin</a>
+    </div>
+    <div style="font-size:.8rem;opacity:.45">
+      ⚕️ HeartCare AI &mdash; For educational &amp; risk screening only. Not a substitute for medical diagnosis.
+    </div>
+  </footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ── Theme toggle ──────────────────────────────────────────────
+(() => {
+  const root = document.body;
+  const btn  = document.getElementById('themeToggle');
+  const icon = btn ? btn.querySelector('.theme-icon') : null;
+  const preferred = () => {
+    const saved = localStorage.getItem('hc_theme');
+    if (saved === 'light' || saved === 'dark') return saved;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  };
+  const apply = (t) => {
+    root.setAttribute('data-theme', t);
+    if (icon) icon.textContent = t === 'light' ? '☀️' : '🌙';
+  };
+  apply(preferred());
+  if (btn) {
+    btn.addEventListener('click', () => {
+      const now = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      localStorage.setItem('hc_theme', now);
+      apply(now);
+    });
+  }
+})();
+
+// ── AI Loading Overlay ────────────────────────────────────────
+(function(){
+  const overlay  = document.getElementById('aiOverlay');
+  const stepEl   = document.getElementById('overlayStep');
+  const progEl   = document.getElementById('overlayProgress');
+  const stepIds  = ['step1','step2','step3','step4','step5'];
+  const steps    = [
+    'Reading patient vitals…',
+    'Running XGBoost model…',
+    'Computing SHAP attribution…',
+    'Calculating Heart Health Score…',
+    'Preparing PDF report…'
+  ];
+
+  function showOverlay() {
+    if (!overlay) return;
+    overlay.style.display = 'block';
+    let i = 0;
+    stepIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '⏳ ' + steps[stepIds.indexOf(id)];
+    });
+    const iv = setInterval(() => {
+      if (i >= steps.length) { clearInterval(iv); return; }
+      if (stepEl) stepEl.textContent = steps[i];
+      if (progEl) progEl.style.width = ((i + 1) / steps.length * 100) + '%';
+      const el = document.getElementById(stepIds[i]);
+      if (el) el.textContent = '✅ ' + steps[i];
+      i++;
+    }, 350);
+  }
+
+  // Attach to all prediction/analysis forms
+  document.querySelectorAll('form[action*="predict"], form[action*="ecg"]').forEach(form => {
+    form.addEventListener('submit', showOverlay);
+  });
+  // Also attach to predict button by id if present
+  const predictBtn = document.getElementById('predictBtn');
+  if (predictBtn) {
+    predictBtn.closest('form') && predictBtn.closest('form').addEventListener('submit', showOverlay);
+  }
+})();
+</script>
+
+<!-- PWA service worker registration -->
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+}
+</script>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

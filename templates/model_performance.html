@@ -1,0 +1,378 @@
+{% extends 'base.html' %}
+{% set title = 'HeartCare AI • Model Performance' %}
+
+{% block head %}
+<style>
+.perf-card{
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:18px; padding:28px;
+  transition:border-color .2s, transform .2s;
+}
+.perf-card:hover{ border-color:rgba(124,58,237,.4); transform:translateY(-3px) }
+
+.metric-big{
+  font-size:2.8rem; font-weight:900; line-height:1;
+  background:linear-gradient(135deg,#a78bfa,#7c3aed);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+.metric-big.green { background:linear-gradient(135deg,#4ade80,#16a34a); -webkit-background-clip:text; background-clip:text }
+.metric-big.cyan  { background:linear-gradient(135deg,#67e8f9,#0891b2); -webkit-background-clip:text; background-clip:text }
+.metric-big.amber { background:linear-gradient(135deg,#fcd34d,#d97706); -webkit-background-clip:text; background-clip:text }
+.metric-big.red   { background:linear-gradient(135deg,#fca5a5,#dc2626); -webkit-background-clip:text; background-clip:text }
+
+.feature-tag{
+  display:inline-block; padding:5px 14px; border-radius:999px;
+  background:rgba(124,58,237,.14); border:1px solid rgba(124,58,237,.28);
+  font-size:.82rem; font-weight:600; color:#c4b5fd; margin:3px;
+}
+.api-method{
+  display:inline-block; padding:3px 10px; border-radius:6px;
+  font-size:.78rem; font-weight:700; font-family:monospace;
+}
+.method-post{ background:rgba(34,197,94,.18); color:#4ade80; border:1px solid rgba(34,197,94,.3) }
+.method-get { background:rgba(6,182,212,.18); color:#67e8f9; border:1px solid rgba(6,182,212,.3) }
+.api-path{ font-family:monospace; font-size:.9rem; color:#c4b5fd; font-weight:600 }
+.conf-bar-track{
+  background:rgba(255,255,255,.08); border-radius:999px; height:12px; overflow:hidden;
+}
+.conf-bar-fill{
+  height:12px; border-radius:999px;
+  background:linear-gradient(90deg,#7c3aed,#a78bfa);
+  transition: width 1s ease;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="mb-4">
+  <div class="kicker">transparency</div>
+  <h1 class="mb-0">Model Performance</h1>
+  <p class="sub mb-0">Technical details, evaluation metrics, and API documentation for HeartCare AI.</p>
+</div>
+
+<!-- ── TOP METRIC CARDS ─────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+
+  <div class="col-md-3 col-6">
+    <div class="perf-card text-center h-100">
+      <div class="metric-big">73%</div>
+      <div class="mini mt-2">Accuracy</div>
+      <div class="sub" style="font-size:.78rem">Test set (20%)</div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-6">
+    <div class="perf-card text-center h-100">
+      <div class="metric-big green">0.80</div>
+      <div class="mini mt-2">ROC AUC</div>
+      <div class="sub" style="font-size:.78rem">Area Under Curve</div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-6">
+    <div class="perf-card text-center h-100">
+      <div class="metric-big cyan">75%</div>
+      <div class="mini mt-2">Precision</div>
+      <div class="sub" style="font-size:.78rem">Positive predictive value</div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-6">
+    <div class="perf-card text-center h-100">
+      <div class="metric-big amber">71%</div>
+      <div class="mini mt-2">Recall</div>
+      <div class="sub" style="font-size:.78rem">Sensitivity / True positive rate</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── SECOND ROW ────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+
+  <div class="col-md-3 col-6">
+    <div class="perf-card text-center h-100">
+      <div class="metric-big red">73%</div>
+      <div class="mini mt-2">F1 Score</div>
+      <div class="sub" style="font-size:.78rem">Harmonic mean P/R</div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-6">
+    <div class="perf-card text-center h-100">
+      <div class="metric-big" style="font-size:1.8rem">70,000</div>
+      <div class="mini mt-2">Training Records</div>
+      <div class="sub" style="font-size:.78rem">Cardiovascular dataset</div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-6">
+    <div class="perf-card text-center h-100">
+      <div class="metric-big green" style="font-size:1.8rem">{{ total_preds }}</div>
+      <div class="mini mt-2">Live Predictions</div>
+      <div class="sub" style="font-size:.78rem">Processed by this app</div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-6">
+    <div class="perf-card text-center h-100">
+      <div class="metric-big cyan" style="font-size:1.8rem">{{ total_ecg }}</div>
+      <div class="mini mt-2">ECG Scans</div>
+      <div class="sub" style="font-size:.78rem">Processed by this app</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── MAIN CONTENT ROW ─────────────────────────────────────── -->
+<div class="row g-4 mb-4">
+
+  <!-- Algorithm Details -->
+  <div class="col-lg-6">
+    <div class="hero-card p-4 h-100">
+      <h5 class="section-title mb-3">🤖 Algorithm Details</h5>
+
+      <div class="row g-3">
+        <div class="col-6">
+          <div class="mini">Heart Risk Model</div>
+          <div class="fw-bold mt-1">XGBoost</div>
+          <div class="sub" style="font-size:.8rem">Gradient Boosted Trees</div>
+        </div>
+        <div class="col-6">
+          <div class="mini">ECG Analysis Model</div>
+          <div class="fw-bold mt-1">Gradient Boosting</div>
+          <div class="sub" style="font-size:.8rem">Binary classifier</div>
+        </div>
+        <div class="col-6">
+          <div class="mini">Explainability</div>
+          <div class="fw-bold mt-1">Permutation SHAP</div>
+          <div class="sub" style="font-size:.8rem">Feature attribution</div>
+        </div>
+        <div class="col-6">
+          <div class="mini">Train / Test Split</div>
+          <div class="fw-bold mt-1">80 / 20 %</div>
+          <div class="sub" style="font-size:.8rem">Stratified split</div>
+        </div>
+        <div class="col-6">
+          <div class="mini">Feature Engineering</div>
+          <div class="fw-bold mt-1">24 Features</div>
+          <div class="sub" style="font-size:.8rem">From 11 raw inputs</div>
+        </div>
+        <div class="col-6">
+          <div class="mini">ECG Features</div>
+          <div class="fw-bold mt-1">20 Signal Features</div>
+          <div class="sub" style="font-size:.8rem">Time + frequency domain</div>
+        </div>
+      </div>
+
+      <div class="divider my-3"></div>
+      <div class="mini mb-2">Engineered Features Used</div>
+      <div>
+        <span class="feature-tag">Age</span>
+        <span class="feature-tag">BMI</span>
+        <span class="feature-tag">MAP</span>
+        <span class="feature-tag">Pulse Pressure</span>
+        <span class="feature-tag">log(BMI)</span>
+        <span class="feature-tag">log(MAP)</span>
+        <span class="feature-tag">Age × BMI</span>
+        <span class="feature-tag">Age × BP</span>
+        <span class="feature-tag">BMI × Cholesterol</span>
+        <span class="feature-tag">BP × Cholesterol</span>
+        <span class="feature-tag">Age Group</span>
+        <span class="feature-tag">Risk Count</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confidence Metrics Bar Chart -->
+  <div class="col-lg-6">
+    <div class="hero-card p-4 h-100">
+      <h5 class="section-title mb-3">📊 Performance Breakdown</h5>
+
+      {% set metrics = [
+        ("Accuracy",  73, "#7c3aed"),
+        ("ROC AUC",   80, "#22c55e"),
+        ("Precision", 75, "#06b6d4"),
+        ("Recall",    71, "#f59e0b"),
+        ("F1 Score",  73, "#ef4444"),
+        ("ECG Acc.",  78, "#a855f7")
+      ] %}
+
+      {% for name, val, color in metrics %}
+      <div class="mb-3">
+        <div class="d-flex justify-content-between mini mb-1">
+          <span>{{ name }}</span>
+          <span class="fw-bold" style="color:{{ color }}">{{ val }}%</span>
+        </div>
+        <div class="conf-bar-track">
+          <div class="conf-bar-fill" data-w="{{ val }}"
+               style="background:linear-gradient(90deg,{{ color }}88,{{ color }})"></div>
+        </div>
+      </div>
+      {% endfor %}
+
+      <div class="divider my-3"></div>
+      <div class="sub" style="font-size:.8rem">
+        ℹ Metrics computed on the 20% held-out test set from the
+        Cardiovascular Disease dataset (Kaggle / ICMR aligned).
+        ECG accuracy is on synthetic waveform test data with photo artefacts.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── DATASET INFO ─────────────────────────────────────────── -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-4">
+    <div class="perf-card h-100">
+      <h5 class="section-title mb-3">📦 Dataset</h5>
+      <ul class="m-0 ps-3" style="color:rgba(234,240,255,.8); font-size:.9rem">
+        <li class="mb-2">Source: Cardiovascular Disease Dataset</li>
+        <li class="mb-2">Records: 70,000 patients</li>
+        <li class="mb-2">Target: Cardiovascular disease (binary)</li>
+        <li class="mb-2">Class balance: ~50% positive</li>
+        <li class="mb-2">Age range: 29–65 years</li>
+        <li class="mb-2">Pre-processing: outlier removal, BMI capping</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="perf-card h-100">
+      <h5 class="section-title mb-3">⚙️ XGBoost Hyperparameters</h5>
+      <ul class="m-0 ps-3" style="color:rgba(234,240,255,.8); font-size:.9rem">
+        <li class="mb-2">n_estimators: 300</li>
+        <li class="mb-2">max_depth: 5</li>
+        <li class="mb-2">learning_rate: 0.05</li>
+        <li class="mb-2">subsample: 0.8</li>
+        <li class="mb-2">colsample_bytree: 0.8</li>
+        <li class="mb-2">Tuning: GridSearchCV 5-fold CV</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="perf-card h-100">
+      <h5 class="section-title mb-3">🔬 ECG Model</h5>
+      <ul class="m-0 ps-3" style="color:rgba(234,240,255,.8); font-size:.9rem">
+        <li class="mb-2">20 signal features extracted per image</li>
+        <li class="mb-2">Features: time-domain + frequency-domain</li>
+        <li class="mb-2">Peak detection: SciPy find_peaks</li>
+        <li class="mb-2">FFT-based LF/HF ratio analysis</li>
+        <li class="mb-2">Spectral entropy for arrhythmia detection</li>
+        <li class="mb-2">Trained on synthetic + augmented ECG images</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ── REST API DOCUMENTATION ───────────────────────────────── -->
+<div class="hero-card p-4 mb-4">
+  <h5 class="section-title mb-1">🔌 REST API Reference</h5>
+  <div class="mini mb-4">Use these endpoints to integrate HeartCare AI into external applications.</div>
+
+  <div class="row g-3">
+
+    <!-- /api/predict -->
+    <div class="col-12">
+      <div class="perf-card">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span class="api-method method-post">POST</span>
+          <span class="api-path">/api/predict</span>
+        </div>
+        <div class="sub mb-2">Predict cardiovascular risk from patient vitals. Returns probability, risk level, SHAP attribution, and recommendations.</div>
+        <div class="mini mb-1">Request Body (JSON):</div>
+        <pre style="background:rgba(0,0,0,.3);border-radius:10px;padding:12px;font-size:.8rem;color:#c4b5fd;overflow-x:auto">{
+  "age": 55, "gender": 1, "height": 165, "weight": 80,
+  "ap_hi": 140, "ap_lo": 90, "cholesterol": 2,
+  "gluc": 1, "smoke": 0, "alco": 0, "active": 1,
+  "patient_name": "Ramesh Kumar"
+}</pre>
+      </div>
+    </div>
+
+    <!-- /api/ecg -->
+    <div class="col-md-6">
+      <div class="perf-card h-100">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span class="api-method method-post">POST</span>
+          <span class="api-path">/api/ecg</span>
+        </div>
+        <div class="sub mb-2">Analyse an ECG image. Send as <code>multipart/form-data</code> with key <code>ecg_image</code>.</div>
+        <div class="mini mb-1">Returns:</div>
+        <pre style="background:rgba(0,0,0,.3);border-radius:10px;padding:12px;font-size:.8rem;color:#c4b5fd;overflow-x:auto">{
+  "result_label": "Normal Pattern",
+  "pattern": "normal",
+  "confidence": 91.2,
+  "features": { ... 20 metrics ... },
+  "screening_note": "AI screening only"
+}</pre>
+      </div>
+    </div>
+
+    <!-- /api/history -->
+    <div class="col-md-6">
+      <div class="perf-card h-100">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span class="api-method method-get">GET</span>
+          <span class="api-path">/api/history</span>
+        </div>
+        <div class="sub mb-2">Fetch prediction history. Query params: <code>limit</code>, <code>risk</code>, <code>search</code>.</div>
+        <div class="mini mb-1">Example:</div>
+        <pre style="background:rgba(0,0,0,.3);border-radius:10px;padding:12px;font-size:.8rem;color:#c4b5fd;overflow-x:auto">GET /api/history?limit=10&risk=High+Risk
+
+{
+  "total": 10,
+  "records": [ ... ],
+  "ecg_total": 5,
+  "ecg_records": [ ... ]
+}</pre>
+      </div>
+    </div>
+
+    <!-- /api/dashboard -->
+    <div class="col-md-6">
+      <div class="perf-card h-100">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span class="api-method method-get">GET</span>
+          <span class="api-path">/api/dashboard</span>
+        </div>
+        <div class="sub">Returns aggregate statistics: total predictions, risk distribution, BMI breakdown, ECG counts, trend data.</div>
+      </div>
+    </div>
+
+    <!-- Auth note -->
+    <div class="col-md-6">
+      <div class="perf-card h-100" style="border-color:rgba(245,158,11,.25)">
+        <div class="mini mb-1" style="color:#fcd34d">⚠ Authentication Note</div>
+        <div class="sub">All API endpoints are accessible without a token for demo purposes. In production, add token-based authentication (JWT/API key) before deploying publicly.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── DISCLAIMER ───────────────────────────────────────────── -->
+<div class="form-card p-4 text-center" style="border-color:rgba(239,68,68,.25)">
+  <div class="mini fw-bold mb-1" style="color:#fca5a5">⚠ Medical Disclaimer</div>
+  <div class="sub">
+    HeartCare AI is an educational and research prototype. It is not a certified medical device.
+    Predictions are based on statistical models and should not replace professional clinical diagnosis.
+    Always consult a qualified cardiologist for medical decisions.
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Animate performance bars on load
+  document.querySelectorAll('.conf-bar-fill[data-w]').forEach(el => {
+    el.style.width = '0%';
+    setTimeout(() => { el.style.width = el.dataset.w + '%'; }, 200);
+  });
+</script>
+{% endblock %}
